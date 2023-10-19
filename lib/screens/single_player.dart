@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
-
+import 'package:my_x_and_o/providers/cards_provider.dart';
+import 'package:vibration/vibration.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:my_x_and_o/model/card.dart';
 import 'package:my_x_and_o/providers/o_player_provider.dart';
@@ -56,7 +57,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   late Widget nullifyCard;
   late Widget swapCard;
   late Widget randomSwapCard;
-  List<Widget> cardListDisplay = [];
+  List<Map<Widget, int>> cardListDisplay = [];
 
   bool check(int position, List<int> positions, IncrementPattern pattern) {
     int incrementValue;
@@ -137,14 +138,16 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     nullifyCard = NullifyCard(onApply: onNullifyCard);
     swapCard = SwapCard(onApply: onSwapCard);
     randomSwapCard = RandomSwapCard(onApply: onRandomSwapCard);
-    final possibleCardList = [
-      blockCard,
-      nullifyCard,
-      randomSwapCard,
-      swapCard,
+    final cardAmountMap = ref.read(cardProvider);
+    final possibleCardMap = [
+      {blockCard: cardAmountMap["blockCard"]!},
+      {nullifyCard: cardAmountMap["nullifyCard"]!},
+      {randomSwapCard: cardAmountMap["randomSwapCard"]!},
+      {swapCard: cardAmountMap["swapCard"]!}
     ];
+
     for (final item in widget.cards) {
-      cardListDisplay.add(possibleCardList[item]);
+      cardListDisplay.add(possibleCardMap[item]);
     }
   }
 
@@ -246,6 +249,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   }
 
   void onClicked(int position) async {
+    Vibration.vibrate();
     tap++;
     userApplyingCard = false;
     clickButton(() {});
@@ -845,7 +849,25 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                                 InkWell(
                                     onTap: onBackCardTap,
                                     child: const CardBack()),
-                              if (userApplyingCard) ...cardListDisplay,
+                              if (userApplyingCard)
+                                ...cardListDisplay.map(
+                                  (card) => Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircleAvatar(
+                                        backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .tertiary,
+                                        foregroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .secondary,
+                                        child:
+                                            Text("${card.entries.toList()[0]}"),
+                                      ),
+                                      card.keys.toList()[0],
+                                    ],
+                                  ),
+                                ),
                               if (userApplyingCard)
                                 IconButton(
                                   onPressed: () {
@@ -938,7 +960,10 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                           padding: const EdgeInsets.all(12),
                           child: Text(
                             feedback!,
-                            style: const TextStyle(fontSize: 17),
+                            style: TextStyle(
+                                fontSize: 18,
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600),
                           ),
                         ),
                       const SizedBox(height: 12),
@@ -957,7 +982,25 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                                         onTap: onBackCardTap,
                                         child: const CardBack(),
                                       ),
-                                    if (userApplyingCard) ...cardListDisplay,
+                                    if (userApplyingCard)
+                                      ...cardListDisplay.map(
+                                        (card) => Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CircleAvatar(
+                                              backgroundColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .tertiary,
+                                              foregroundColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .secondary,
+                                              child: Text(
+                                                  "${card.entries.toList()[0]}"),
+                                            ),
+                                            card.keys.toList()[0],
+                                          ],
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),

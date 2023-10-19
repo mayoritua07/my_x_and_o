@@ -69,9 +69,10 @@ class CardFront extends StatelessWidget {
 }
 
 class BlockCard extends StatelessWidget {
-  const BlockCard({super.key, required this.onApply});
+  const BlockCard({super.key, required this.onApply, this.title = "blockCard"});
 
   final void Function() onApply;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -102,6 +103,7 @@ class NullifyCard extends StatelessWidget {
   const NullifyCard({super.key, required this.onApply});
 
   final void Function() onApply;
+  final title = "nullifyCard";
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +136,7 @@ class SwapCard extends StatelessWidget {
   const SwapCard({super.key, required this.onApply});
 
   final void Function() onApply;
+  final title = "swapCard";
 
   @override
   Widget build(BuildContext context) {
@@ -167,6 +170,7 @@ class RandomSwapCard extends StatelessWidget {
   const RandomSwapCard({super.key, required this.onApply});
 
   final void Function() onApply;
+  final title = "randomSwapCard";
 
   @override
   Widget build(BuildContext context) {
@@ -179,7 +183,7 @@ class RandomSwapCard extends StatelessWidget {
 }
 
 class RandomSwapCardBig extends StatelessWidget {
-  RandomSwapCardBig({super.key, required this.onApply});
+  const RandomSwapCardBig({super.key, required this.onApply});
 
   final void Function() onApply;
 

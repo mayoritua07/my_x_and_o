@@ -246,7 +246,8 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                     ),
                   ),
                 ],
-              ))
+              ),
+            )
           : SingleChildScrollView(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

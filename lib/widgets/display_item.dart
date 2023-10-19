@@ -78,7 +78,8 @@ class _DisplayItemState extends ConsumerState<ODisplayItem> {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     behavior: SnackBarBehavior.floating,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15)),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
                     content: Text(
                       "This colour can not be assigned!",
                       style: Theme.of(context).textTheme.labelLarge!.copyWith(
