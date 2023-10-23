@@ -1,8 +1,11 @@
+import 'dart:math';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_x_and_o/providers/dark_mode_provider.dart';
+import 'package:my_x_and_o/providers/sound.dart';
 import 'package:my_x_and_o/screens/home_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -29,6 +32,24 @@ final darkModeProvider = StateNotifierProvider<DarkModeNotifier, bool>(
   },
 );
 
+final songList = [
+  "audio/avengers.wav",
+  "audio/Pink_Deville.mp3",
+  "audio/cool1.mp3"
+];
+final globalAudioPlayer = AudioPlayer();
+
+final randomizer = Random();
+int generateRandomPosition(number) {
+  int randomValue = randomizer.nextInt(songList.length);
+  if (randomValue == number) {
+    return generateRandomPosition(number);
+  }
+  return randomValue;
+}
+
+int num = 0;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -47,63 +68,74 @@ class MyApp extends ConsumerStatefulWidget {
   }
 }
 
-class _MyAppState extends ConsumerState<MyApp> {
+class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   @override
   void initState() {
+    WidgetsBinding.instance.addObserver(this);
+    num = generateRandomPosition(-1);
+    globalAudioPlayer.setSource(AssetSource(songList[num]));
     super.initState();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    setState(() {
+      if (state == AppLifecycleState.paused || !mounted) {
+        globalAudioPlayer.pause();
+      }
+    });
+    super.didChangeAppLifecycleState(state);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    globalAudioPlayer.release();
+    super.dispose();
+  }
+
+  void backgroundMusic(int number) async {
+    if (!ref.read(soundTrackProvider)) {
+      await globalAudioPlayer.stop();
+      num = generateRandomPosition(number);
+      await globalAudioPlayer.setSource(AssetSource(songList[num]));
+      return;
+    }
+
+    await globalAudioPlayer.resume();
+
+    globalAudioPlayer.onPlayerComplete.listen((event) async {
+      await globalAudioPlayer
+          .setSource(AssetSource(songList[generateRandomPosition(number)]));
+      backgroundMusic(number);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     ref.watch(darkModeProvider);
-
+    ref.watch(soundTrackProvider);
+    backgroundMusic(num);
     return MaterialApp(
       title: 'My X and O',
       theme: ref.read(darkModeProvider) ? _darkTheme : _lightTheme,
-      home: WillPopScope(
-        onWillPop: () async {
-          bool exitGame = false;
-          await showDialog(
-            context: context,
-            builder: (context) {
-              return AlertDialog(
-                title: const Text("Exit App"),
-                content: const Center(
-                  child: Text("Are you sure you wish to exit?"),
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () {
-                        exitGame = true;
-                      },
-                      child: const Text("No")),
-                  TextButton(
-                      onPressed: () {
-                        exitGame = false;
-                      },
-                      child: const Text("No"))
-                ],
-              );
-            },
-          );
-          return exitGame;
-        },
-        child: const HomeScreen(),
-      ),
+      home: const HomeScreen(),
     );
   }
 }
 
 /*
-cards : include shop for cards, money, you will start with 3 of each card, nullify and swap will be special cards.
+cards : include shop for cards, money, you will start with 3 of each card, nullify and swap will be special cards, amssing wealth, displaying card bought, displaying only cards they have, improve packs description
 store locally, path, path provider, sql
 design logo
 change app name
 sound effect everywhere, change powerup effect sound
-optimize cards
+animation of winning and once game ends no more taps, popup immediately????, confirm this
+music should stop once screen is off
 closing app with back button
-configure snack bar and feedback when cards are active and use checkbox in setup screen
-add vibration on card effect
+configure snack bar everywhere and still set time
+
+
 
 wifi play : username
 online play, learn future/stream builder

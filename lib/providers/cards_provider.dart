@@ -1,26 +1,27 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_x_and_o/screens/shop.dart';
 
-class CardNotifier extends StateNotifier<Map<String, int>> {
+class CardNotifier extends StateNotifier<Map<Enum, int>> {
   CardNotifier()
       : super({
-          "blockCard": 5,
-          "nullifyCard": 5,
-          "randomSwapCard": 2,
-          "swapCard": 1,
+          Cards.block: 5,
+          Cards.nullify: 1,
+          Cards.randomSwap: 2,
+          Cards.swap: 2,
         });
 
-  void reduceCard(String card) {
+  void reduceCard(Enum card) {
     final newState = state;
     newState[card] = newState[card]! - 1;
     state = newState;
   }
 
-  void addCard(String card) {
+  void addCard(Enum card) {
     final newState = state;
     newState[card] = newState[card]! + 1;
     state = newState;
   }
 }
 
-final cardProvider = StateNotifierProvider<CardNotifier, Map<String, int>>(
+final cardProvider = StateNotifierProvider<CardNotifier, Map<Enum, int>>(
     (ref) => CardNotifier());

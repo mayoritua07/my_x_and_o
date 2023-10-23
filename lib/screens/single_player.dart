@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:my_x_and_o/providers/cards_provider.dart';
+import 'package:my_x_and_o/screens/shop.dart';
+import 'package:my_x_and_o/widgets/snackbar.dart';
 import 'package:vibration/vibration.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:my_x_and_o/model/card.dart';
@@ -15,13 +17,13 @@ import 'package:my_x_and_o/main.dart';
 
 enum IncrementPattern { horizontal, vertical, leadingDiagonal, secondDiagonal }
 
-Random randomizer = Random();
+final randomizer = Random();
 
 class SinglePlayer extends ConsumerStatefulWidget {
   const SinglePlayer({super.key, required this.value, required this.cards});
 
   final String value;
-  final List cards;
+  final List<Enum> cards;
 
   @override
   ConsumerState<SinglePlayer> createState() {
@@ -57,7 +59,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   late Widget nullifyCard;
   late Widget swapCard;
   late Widget randomSwapCard;
-  List<Map<Widget, int>> cardListDisplay = [];
+  Map<Enum, Widget> cardListDisplay = {};
 
   bool check(int position, List<int> positions, IncrementPattern pattern) {
     int incrementValue;
@@ -138,16 +140,15 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     nullifyCard = NullifyCard(onApply: onNullifyCard);
     swapCard = SwapCard(onApply: onSwapCard);
     randomSwapCard = RandomSwapCard(onApply: onRandomSwapCard);
-    final cardAmountMap = ref.read(cardProvider);
-    final possibleCardMap = [
-      {blockCard: cardAmountMap["blockCard"]!},
-      {nullifyCard: cardAmountMap["nullifyCard"]!},
-      {randomSwapCard: cardAmountMap["randomSwapCard"]!},
-      {swapCard: cardAmountMap["swapCard"]!}
-    ];
+    final possibleCardList = {
+      Cards.block: blockCard,
+      Cards.nullify: nullifyCard,
+      Cards.randomSwap: randomSwapCard,
+      Cards.swap: swapCard,
+    };
 
     for (final item in widget.cards) {
-      cardListDisplay.add(possibleCardMap[item]);
+      cardListDisplay.addAll({item: possibleCardList[item]!});
     }
   }
 
@@ -188,6 +189,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
             containerList[pos - 1].resetScreen();
             computerActiveCard = null;
             computerCardPosition = [];
+            Vibration.vibrate();
             feedback = "You have been Blocked!";
             Timer(const Duration(milliseconds: 1000), () {
               setState(() {
@@ -198,6 +200,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
           userPlayed = !userPlayed;
           computerPlayed = !computerPlayed;
           value = compValue;
+          tap++;
           computerPlay();
           return;
         }
@@ -208,6 +211,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
           pos = computerCardPosition[0];
           setState(() {
             containerList[pos - 1].resetScreen();
+            Vibration.vibrate();
             feedback = "Your tile has been swapped!";
             Timer(const Duration(milliseconds: 1000), () {
               setState(() {
@@ -249,7 +253,6 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   }
 
   void onClicked(int position) async {
-    Vibration.vibrate();
     tap++;
     userApplyingCard = false;
     clickButton(() {});
@@ -262,15 +265,15 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
       if (winner(xPositions)) {
         decision = myValue == "X" ? "You win" : "You lose";
         xScore++;
-        endingSound(myValue == "X" ? winningSound : losingSound, () {
-          setState(() {
-            value = 'O';
-            popUp(false);
-          });
+        setState(() {
+          value = 'O';
+          popUp(false);
         });
+        endingSound(myValue == "X" ? winningSound : losingSound, () {});
 
         return;
       }
+
       setState(() {
         value = 'O';
         computerPlay();
@@ -280,11 +283,11 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
       if (winner(oPositions)) {
         value = 'X';
         decision = myValue == "O" ? "You win" : "You lose";
+        setState(() {
+          popUp(false);
+        });
         endingSound(myValue == "O" ? winningSound : losingSound, () {
           oScore++;
-          setState(() {
-            popUp(false);
-          });
         });
 
         return;
@@ -294,7 +297,6 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
         computerPlay();
       });
     }
-
     if (spaceUsedUp()) {
       setState(() {
         decision = "Draw";
@@ -304,7 +306,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   }
 
   int generateRandomPosition() {
-    int randomValue = randomizer.nextInt(8) + 1;
+    int randomValue = randomizer.nextInt(9) + 1;
     if (oPositions.contains(randomValue) ||
         xPositions.contains(randomValue) ||
         computerCardPosition.contains(randomValue)) {
@@ -355,20 +357,18 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
             computerActiveCard = blockCard;
             computerCardPosition.add(generateRandomPosition());
           });
-        }
-        if (choice == 1) {
+        } else if (choice == 1) {
           setState(() {
             computerActiveCard = swapCard;
             computerCardPosition.add(generateRandomPosition());
             computerCardPosition.add(generateRandomPosition());
           });
-        }
-
-        if (choice == 2) {
+        } else if (choice == 2) {
           setState(() {
             computerActiveCard = nullifyCard;
             if (userActiveCard != null) {
               feedback = "Your card was nullified!";
+              Vibration.vibrate();
               containerList[myCardPosition[0] - 1].resetScreen();
             }
             userActiveCard = null;
@@ -406,7 +406,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
               });
             });
           });
-
+          tap++;
           return;
         }
       } else if (userActiveCard == swapCard ||
@@ -459,12 +459,12 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
         for (final items in containerList) {
           items.resetScreen();
         }
+        decision = null;
+        oPositions = [];
+        tap = 0;
+        xPositions = [];
+        computerPlay();
       });
-      oPositions = [];
-      tap = 0;
-      xPositions = [];
-      decision = null;
-      computerPlay();
     });
   }
 
@@ -487,7 +487,10 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                 title: Center(
                   child: Text(
                     decision ?? "Pause Menu",
-                    style: const TextStyle(fontSize: 18),
+                    style: TextStyle(
+                        fontSize: 18,
+                        color:
+                            Theme.of(context).colorScheme.onPrimaryContainer),
                   ),
                 ),
                 content: Column(
@@ -593,17 +596,19 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   void onBackCardTap() {
     if (tap > 3) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Can no longer activate cards")),
-      );
+      // ScaffoldMessenger.of(context).clearSnackBars();
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(content: Text("Can no longer activate cards")),
+      // );
+      displayMySnackBar(context, "You can no longer activate cards");
       return;
     }
     if (userActiveCard != null) {
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("A card has been used")),
-      );
+      // ScaffoldMessenger.of(context).clearSnackBars();
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(content: Text("A card has been used")),
+      // );
+      displayMySnackBar(context, "A card has already been used");
       return;
     }
     setState(() {
@@ -612,45 +617,65 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   }
 
   void onBlockCard() {
-    setState(() {
-      feedback = "Guess Opponent next position";
-      getPosition = true;
-      userApplyingCard = false;
-      userActiveCard = blockCard;
-    });
+    if (ref.read(cardProvider)[Cards.block]! > 0) {
+      setState(() {
+        feedback = "Guess Opponent next position";
+        getPosition = true;
+        userApplyingCard = false;
+        userActiveCard = blockCard;
+        ref.read(cardProvider.notifier).reduceCard(Cards.block);
+      });
+    } else {
+      displayMySnackBar(context, "You don't have any of this card!");
+    }
   }
 
   void onSwapCard() {
-    setState(() {
-      feedback = "Guess Opponent next position";
-      getPosition = true;
-      userActiveCard = swapCard;
-    });
+    if (ref.read(cardProvider)[Cards.swap]! > 0) {
+      setState(() {
+        feedback = "Guess Opponent next position";
+        getPosition = true;
+        userActiveCard = swapCard;
+        ref.read(cardProvider.notifier).reduceCard(Cards.swap);
+      });
+    } else {
+      displayMySnackBar(context, "You don't have any of this card!");
+    }
   }
 
   void onRandomSwapCard() {
-    setState(() {
-      feedback = "Guess Opponent next position";
-      getPosition = true;
-      userActiveCard = randomSwapCard;
-      userApplyingCard = false;
-    });
+    if (ref.read(cardProvider)[Cards.randomSwap]! > 0) {
+      setState(() {
+        feedback = "Guess Opponent next position";
+        getPosition = true;
+        userActiveCard = randomSwapCard;
+        userApplyingCard = false;
+        ref.read(cardProvider.notifier).reduceCard(Cards.randomSwap);
+      });
+    } else {
+      displayMySnackBar(context, "You don't have any of this card!");
+    }
   }
 
   void onNullifyCard() {
-    userActiveCard = nullifyCard;
-    nullifyPowerupSound();
-    setState(() {
-      feedback = "Nullified!";
-      Timer(const Duration(milliseconds: 1000), () {
-        setState(() {
-          feedback = null;
+    if (ref.read(cardProvider)[Cards.nullify]! > 0) {
+      userActiveCard = nullifyCard;
+      nullifyPowerupSound();
+      setState(() {
+        feedback = "Nullified!";
+        Timer(const Duration(milliseconds: 1000), () {
+          setState(() {
+            feedback = null;
+          });
         });
+        computerCardPosition = [];
+        computerActiveCard = null;
+        userApplyingCard = false;
+        ref.read(cardProvider.notifier).reduceCard(Cards.nullify);
       });
-      computerCardPosition = [];
-      computerActiveCard = null;
-      userApplyingCard = false;
-    });
+    } else {
+      displayMySnackBar(context, "You don't have any of this card!");
+    }
   }
 
   @override
@@ -659,6 +684,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     double height = MediaQuery.of(context).size.height;
     double width = MediaQuery.of(context).size.width;
     bool isLandscape = width > 650;
+    ref.watch(cardProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -835,7 +861,10 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                       padding: const EdgeInsets.all(12),
                       child: Text(
                         feedback!,
-                        style: const TextStyle(fontSize: 17),
+                        style: TextStyle(
+                            fontSize: 18,
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.w600),
                       ),
                     ),
                   SizedBox(
@@ -850,21 +879,26 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                                     onTap: onBackCardTap,
                                     child: const CardBack()),
                               if (userApplyingCard)
-                                ...cardListDisplay.map(
-                                  (card) => Column(
+                                ...widget.cards.map(
+                                  (item) => Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       CircleAvatar(
+                                        radius: 15,
                                         backgroundColor: Theme.of(context)
                                             .colorScheme
                                             .tertiary,
                                         foregroundColor: Theme.of(context)
                                             .colorScheme
-                                            .secondary,
-                                        child:
-                                            Text("${card.entries.toList()[0]}"),
+                                            .tertiaryContainer,
+                                        child: Text(
+                                          "${ref.read(cardProvider)[item]}",
+                                          style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500),
+                                        ),
                                       ),
-                                      card.keys.toList()[0],
+                                      cardListDisplay[item]!,
                                     ],
                                   ),
                                 ),
@@ -983,40 +1017,46 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                                         child: const CardBack(),
                                       ),
                                     if (userApplyingCard)
-                                      ...cardListDisplay.map(
-                                        (card) => Column(
+                                      ...widget.cards.map(
+                                        (item) => Column(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             CircleAvatar(
+                                              radius: 15,
                                               backgroundColor: Theme.of(context)
                                                   .colorScheme
                                                   .tertiary,
                                               foregroundColor: Theme.of(context)
                                                   .colorScheme
-                                                  .secondary,
+                                                  .tertiaryContainer,
                                               child: Text(
-                                                  "${card.entries.toList()[0]}"),
+                                                "${ref.read(cardProvider)[item]}",
+                                                style: const TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight:
+                                                        FontWeight.w500),
+                                              ),
                                             ),
-                                            card.keys.toList()[0],
+                                            cardListDisplay[item]!,
                                           ],
                                         ),
                                       ),
+                                    if (userApplyingCard)
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            userApplyingCard = false;
+                                          });
+                                        },
+                                        icon: const Icon(
+                                          Icons.close,
+                                          color: Colors.red,
+                                        ),
+                                      )
                                   ],
                                 ),
                               ),
                             ),
-                            if (userApplyingCard)
-                              IconButton(
-                                onPressed: () {
-                                  setState(() {
-                                    userApplyingCard = false;
-                                  });
-                                },
-                                icon: const Icon(
-                                  Icons.close,
-                                  color: Colors.red,
-                                ),
-                              )
                           ],
                         ),
                       )

@@ -115,14 +115,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     if (value == 'X') {
       xPositions.add(position);
       if (winner(xPositions)) {
-        winningSound(() {
-          setState(() {
-            decision = 'X wins';
-            xScore++;
-            popUp(false);
-            value = 'O';
-          });
+        setState(() {
+          decision = 'X wins';
+          xScore++;
+          popUp(false);
+          value = 'O';
         });
+        winningSound(() {});
         return;
       }
 
@@ -132,14 +131,13 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     } else {
       oPositions.add(position);
       if (winner(oPositions)) {
-        winningSound(() {
-          setState(() {
-            decision = 'O wins';
-            oScore++;
-            popUp(false);
-            value = 'X';
-          });
+        setState(() {
+          decision = 'O wins';
+          oScore++;
+          popUp(false);
+          value = 'X';
         });
+        winningSound(() {});
         return;
       }
       setState(() {
@@ -148,7 +146,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
     if (xPositions.length + oPositions.length == 9) {
       setState(() {
-        decision == "Draw";
+        decision = "Draw";
         popUp(false);
       });
     }
@@ -197,6 +195,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     buttonSound(() {
       setState(() {
         Navigator.of(context).pop();
+        decision = null;
         for (final items in containerList) {
           items.resetScreen();
         }
@@ -204,7 +203,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
     oPositions = [];
     xPositions = [];
-    decision = null;
   }
 
   void quitGame() {
@@ -221,46 +219,100 @@ class _GameScreenState extends ConsumerState<GameScreen> {
         builder: (ctx) {
           return WillPopScope(
             onWillPop: () => Future(() => isDismissible),
-            child: AlertDialog(
-              title: Center(child: Text(decision ?? "Pause Menu")),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        restartGame();
-                        xScore = 0;
-                        oScore = 0;
-                      });
-                    },
-                    label: const Text('Restart'),
-                    icon: const Icon(Icons.restart_alt),
+            child: StatefulBuilder(
+              builder: (context, setState) => AlertDialog(
+                title: Center(
+                  child: Text(
+                    decision ?? "Pause Menu",
+                    style: TextStyle(
+                        fontSize: 18,
+                        color:
+                            Theme.of(context).colorScheme.onPrimaryContainer),
                   ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        restartGame();
-                      });
-                    },
-                    label: const Text('Rematch'),
-                    icon: const Icon(Icons.redo_rounded),
-                  ),
-                  const SizedBox(
-                    height: 20,
-                  ),
-                  TextButton.icon(
-                    onPressed: quitGame,
-                    label: const Text('Quit'),
-                    icon: const Icon(
-                      Icons.cancel,
-                      color: Colors.red,
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          restartGame();
+                          xScore = 0;
+                          oScore = 0;
+                        });
+                      },
+                      label: const Text('Restart'),
+                      icon: const Icon(Icons.restart_alt),
                     ),
-                  ),
-                ],
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          restartGame();
+                        });
+                      },
+                      label: const Text('Rematch'),
+                      icon: const Icon(Icons.redo_rounded),
+                    ),
+                    const SizedBox(
+                      height: 12,
+                    ),
+                    TextButton.icon(
+                      onPressed: quitGame,
+                      label: const Text('Quit'),
+                      icon: const Icon(
+                        Icons.cancel,
+                        color: Colors.red,
+                      ),
+                    ),
+                    if (isDismissible)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(ref.read(soundTrackProvider)
+                                    ? Icons.music_note
+                                    : Icons.music_off),
+                                onPressed: () {
+                                  setState(() {
+                                    ref
+                                        .read(soundTrackProvider.notifier)
+                                        .toggleSoundTrack();
+                                  });
+                                  clickButton(() {});
+                                },
+                              ),
+                              const Text("Sound Track")
+                            ],
+                          ),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(ref.read(soundEffectProvider)
+                                    ? Icons.volume_up
+                                    : Icons.volume_off),
+                                onPressed: () {
+                                  setState(() {
+                                    ref
+                                        .read(soundEffectProvider.notifier)
+                                        .toggleSoundEffect();
+                                  });
+                                  clickButton(() {});
+                                },
+                              ),
+                              const Text("Sound Effects")
+                            ],
+                          )
+                        ],
+                      )
+                  ],
+                ),
               ),
             ),
           );

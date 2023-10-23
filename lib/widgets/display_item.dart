@@ -8,6 +8,7 @@ import 'package:my_x_and_o/providers/o_player_provider.dart';
 import 'package:my_x_and_o/providers/sound.dart';
 import 'package:my_x_and_o/providers/x_player_provider.dart';
 import 'package:my_x_and_o/widgets/player.dart';
+import 'package:my_x_and_o/widgets/snackbar.dart';
 
 class ODisplayItem extends ConsumerStatefulWidget {
   const ODisplayItem(
@@ -74,17 +75,19 @@ class _DisplayItemState extends ConsumerState<ODisplayItem> {
           setState(() {
             if (widget.color != null) {
               if (widget.color == ref.read(xPlayerProvider).color) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    content: Text(
-                      "This colour can not be assigned!",
-                      style: Theme.of(context).textTheme.labelLarge!.copyWith(
-                          color: Theme.of(context).colorScheme.onPrimary),
-                    )));
+                // ScaffoldMessenger.of(context).clearSnackBars();
+                // ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                //   behavior: SnackBarBehavior.floating,
+                //   shape: RoundedRectangleBorder(
+                //     borderRadius: BorderRadius.circular(5),
+                //   ),
+                //   content: Text(
+                //     "This colour can not be assigned!",
+                //     style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                //         color: Theme.of(context).colorScheme.onPrimary),
+                //   ),
+                // ));
+                displayMySnackBar(context, "This colour can not be assigned!");
                 return;
               }
 
@@ -162,15 +165,8 @@ class _XDisplayItemState extends ConsumerState<XDisplayItem> {
           setState(() {
             if (widget.color != null) {
               if (widget.color == ref.read(oPlayerProvider).color) {
-                ScaffoldMessenger.of(context).clearSnackBars();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(
-                  "This colour can not be assigned!",
-                  style: Theme.of(context)
-                      .textTheme
-                      .labelLarge!
-                      .copyWith(color: Theme.of(context).colorScheme.onPrimary),
-                )));
+                //
+                displayMySnackBar(context, "This colour can not be assigned!");
                 return;
               }
               ref.read(xPlayerProvider.notifier).changeColour(widget.color!);

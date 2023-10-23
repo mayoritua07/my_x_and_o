@@ -4,10 +4,14 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:my_x_and_o/main.dart';
 import 'package:my_x_and_o/model/card.dart';
+import 'package:my_x_and_o/providers/cards_provider.dart';
 import 'package:my_x_and_o/providers/o_player_provider.dart';
 import 'package:my_x_and_o/providers/sound.dart';
 import 'package:my_x_and_o/providers/x_player_provider.dart';
+import 'package:my_x_and_o/screens/shop.dart';
+import 'package:my_x_and_o/widgets/snackbar.dart';
 
 class SetupScreen extends ConsumerStatefulWidget {
   const SetupScreen({
@@ -15,7 +19,7 @@ class SetupScreen extends ConsumerStatefulWidget {
     required this.changePage,
   });
 
-  final void Function(BuildContext context, String value, List cards)
+  final void Function(BuildContext context, String value, List<Enum> cards)
       changePage;
 
   @override
@@ -27,33 +31,38 @@ class SetupScreen extends ConsumerStatefulWidget {
 class _SetupScreenState extends ConsumerState<SetupScreen> {
   bool tapped = true;
   bool useCards = false;
-  List<Widget> cardsDisplayList = [];
-  List originalCards = [];
+  List<Map<Enum, Widget>> cardsDisplayList = [];
+  Map originalCards = {};
   String value = "X";
-  List<int> cards = [];
+  List<Enum> cards = [];
   final db = FirebaseFirestore.instance;
 
   @override
   void initState() {
     final blockCard = BlockCardBig(onApply: () {
-      addingCards(0);
+      addingCards(Cards.block);
     });
     final nullifyCard = NullifyCardBig(onApply: () {
-      addingCards(1);
+      addingCards(Cards.nullify);
     });
     final randomSwapCard = RandomSwapCardBig(onApply: () {
-      addingCards(2);
+      addingCards(Cards.randomSwap);
     });
     final swapCard = SwapCardBig(onApply: () {
-      addingCards(3);
+      addingCards(Cards.swap);
     });
-    originalCards = [blockCard, nullifyCard, randomSwapCard, swapCard];
-    cardsDisplayList = [
-      blockCard,
-      nullifyCard,
-      randomSwapCard,
-      swapCard,
-    ];
+    originalCards = {
+      Cards.block: blockCard,
+      Cards.nullify: nullifyCard,
+      Cards.randomSwap: randomSwapCard,
+      Cards.swap: swapCard
+    };
+
+    for (final item in ref.read(cardProvider).entries) {
+      if (item.value > 0) {
+        cardsDisplayList.add({item.key: originalCards[item.key]});
+      }
+    }
 
     super.initState();
   }
@@ -70,21 +79,31 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     });
   }
 
-  void addingCards(int value) {
+  void addingCards(Enum value) {
     setState(() {
       if (cards.contains(value)) {
         cards.remove(value);
-        cardsDisplayList[value] = originalCards[value];
+        for (final item in cardsDisplayList) {
+          if (item.keys.toList()[0] == value) {
+            cardsDisplayList[cardsDisplayList.indexOf(item)][value] =
+                originalCards[value];
+          }
+        }
       } else if (cards.length < 2) {
         cards.add(value);
-        cardsDisplayList[value] = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [const Icon(Icons.check), originalCards[value]],
-        );
+        for (final item in cardsDisplayList) {
+          if (item.keys.toList()[0] == value) {
+            cardsDisplayList[cardsDisplayList.indexOf(item)][value] = Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [const Icon(Icons.check), originalCards[value]],
+            );
+          }
+        }
       } else {
-        ScaffoldMessenger.of(context).clearSnackBars();
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("You can't selct more than 2 cards")));
+        // ScaffoldMessenger.of(context).clearSnackBars();
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //     const SnackBar(content: Text("You can't selct more than 2 cards")));
+        displayMySnackBar(context, "You can't selct more than 2 cards");
       }
     });
   }
@@ -103,8 +122,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isDarkMode =
-        MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    bool isDarkMode = ref.read(darkModeProvider);
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
     final isLandscape = width > 650;
@@ -155,8 +173,8 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                               });
                             },
                             child: Container(
-                              height: 100,
-                              width: 100,
+                              height: tapped ? 105 : 100,
+                              width: tapped ? 105 : 100,
                               decoration: BoxDecoration(
                                   border: tapped
                                       ? Border.all(
@@ -182,8 +200,8 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                               });
                             },
                             child: Container(
-                              height: 100,
-                              width: 100,
+                              height: !tapped ? 105 : 100,
+                              width: !tapped ? 105 : 100,
                               decoration: BoxDecoration(
                                   border: !tapped
                                       ? Border.all(
@@ -202,10 +220,19 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                     ),
                   ),
                   Row(
+                    // mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Padding(
-                        padding: EdgeInsets.only(left: 10),
-                        child: Text("Use Cards"),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 20),
+                        child: Text(
+                          "Use Cards",
+                          style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSecondaryContainer,
+                              fontSize: 20,
+                              fontWeight: useCards ? FontWeight.bold : null),
+                        ),
                       ),
                       Checkbox(
                           value: useCards,
@@ -219,14 +246,23 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                   if (useCards)
                     Column(
                       children: [
-                        const Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Text("Select cards from here"),
-                        ),
+                        Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              "Select cards from here",
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500),
+                            )),
                         SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: cardsDisplayList,
+                              children: cardsDisplayList
+                                  .map((item) => item.values.toList()[0])
+                                  .toList(),
                             )),
                       ],
                     ),
@@ -274,8 +310,8 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                                   });
                                 },
                                 child: Container(
-                                  height: 100,
-                                  width: 100,
+                                  height: tapped ? 105 : 100,
+                                  width: tapped ? 105 : 100,
                                   decoration: BoxDecoration(
                                       border: tapped
                                           ? Border.all(
@@ -301,8 +337,8 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                                   });
                                 },
                                 child: Container(
-                                  height: 100,
-                                  width: 100,
+                                  height: !tapped ? 105 : 100,
+                                  width: !tapped ? 105 : 100,
                                   decoration: BoxDecoration(
                                       border: !tapped
                                           ? Border.all(
@@ -323,9 +359,18 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 10),
-                            child: Text("Use Cards"),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 10),
+                            child: Text(
+                              "Use Cards",
+                              style: TextStyle(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSecondaryContainer,
+                                  fontSize: 20,
+                                  fontWeight:
+                                      useCards ? FontWeight.bold : null),
+                            ),
                           ),
                           Checkbox(
                               value: useCards,
@@ -373,14 +418,24 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                         if (useCards)
                           Column(
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text("Select cards from here"),
+                              Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Text(
+                                  "Select cards from here",
+                                  style: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSecondaryContainer,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500),
+                                ),
                               ),
                               SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
-                                    children: cardsDisplayList,
+                                    children: cardsDisplayList
+                                        .map((item) => item.values.toList()[0])
+                                        .toList(),
                                   )),
                             ],
                           ),

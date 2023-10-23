@@ -13,13 +13,6 @@ import 'package:my_x_and_o/screens/x_and_o.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_x_and_o/main.dart';
 
-final songList = [
-  "audio/avengers.wav",
-  "audio/Pink_Deville.mp3",
-  "audio/cool1.mp3"
-];
-final globalAudioPlayer = AudioPlayer();
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -29,59 +22,11 @@ class HomeScreen extends ConsumerStatefulWidget {
   }
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen>
-    with WidgetsBindingObserver {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   late bool isDarkMode;
   late double width;
   late double height;
   late bool isLandscape;
-  late AppLifecycleState appLifeCycle;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    appLifeCycle = state;
-    setState(() {
-      if (state == AppLifecycleState.paused) {
-        globalAudioPlayer.pause();
-      }
-    });
-    super.didChangeAppLifecycleState(state);
-  }
-
-  @override
-  void initState() {
-    WidgetsBinding.instance.addObserver(this);
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    globalAudioPlayer.release();
-    super.dispose();
-  }
-
-  void backgroundMusic(String song) async {
-    if (!ref.read(soundTrackProvider)) {
-      await globalAudioPlayer.stop();
-      await globalAudioPlayer.setSource(AssetSource(songList[0]));
-      return;
-    }
-
-    await globalAudioPlayer.resume();
-
-    globalAudioPlayer.onPlayerComplete.listen((event) async {
-      int index = songList.indexOf(song);
-      if (index + 1 == songList.length) {
-        index = 0;
-      } else {
-        index += 1;
-      }
-      song = songList[index];
-      await globalAudioPlayer.setSource(AssetSource(song));
-      backgroundMusic(song);
-    });
-  }
 
   Widget modePopup(
       List<String> modesText, List<void Function()> modesFunction) {
@@ -134,8 +79,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     isLandscape = width > 650;
     ref.watch(darkModeProvider);
     isDarkMode = ref.read(darkModeProvider);
-    ref.watch(soundTrackProvider);
-    backgroundMusic(songList[0]);
 
     final List<String> wifiModesText = ["Host", "Join"];
     final List<void Function()> wifiModesFunction = [
@@ -185,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => SetupScreen(
-                  changePage: ((context, value, cards) =>
+                  changePage: ((context, value, List<Enum> cards) =>
                       Navigator.of(context).push(MaterialPageRoute(
                         builder: (context) => SinglePlayer(
                           value: value,
@@ -297,113 +240,151 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       )
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: isDarkMode
-            ? Theme.of(context).colorScheme.background
-            : Theme.of(context).colorScheme.onBackground,
-        foregroundColor: isDarkMode
-            ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.onSecondary,
-        title: const Center(
-            child: Text(
-          'My X and O',
-          style: TextStyle(
-            fontSize: 24,
-          ),
-        )),
-      ),
-      backgroundColor: isDarkMode ? Colors.black : null,
-      body: Stack(
-        children: [
-          Opacity(
-            opacity: 1.0,
-            child: Image.asset(
-              !isDarkMode
-                  ? 'assets/images/home_lightTheme/x_home_page.png'
-                  : 'assets/images/home_darkTheme/dark_home_theme_no_bg.png',
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-          //  Text(
-          //           'Welcome MayorItua!',
-          //           textAlign: TextAlign.center,
-          //           style: TextStyle(
-          //             fontSize: 20,
-          //             fontWeight: FontWeight.w900,
-          //             color: Theme.of(context).colorScheme.primaryContainer,
-          //           ),
-          //         ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? Theme.of(context).colorScheme.background
-                    : Theme.of(context).colorScheme.onBackground.withAlpha(250),
-                borderRadius: const BorderRadius.all(
-                  Radius.circular(10),
-                ),
+    return WillPopScope(
+      onWillPop: () async {
+        bool exitGame = false;
+        await showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text("Exit App"),
+              content: const Center(
+                child: Text("Are you sure you wish to exit?"),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  IconButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const Shop(),
-                          ),
-                        );
-                      },
-                      icon: Icon(
-                        Icons.shopping_cart_outlined,
-                        size: 34,
-                        color: isDarkMode
-                            ? Theme.of(context).colorScheme.secondary
-                            : Theme.of(context).colorScheme.primaryContainer,
-                      )),
-                ],
+              actions: [
+                TextButton(
+                    onPressed: () {
+                      exitGame = true;
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text("Yes")),
+                TextButton(
+                    onPressed: () {
+                      exitGame = false;
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text("No"))
+              ],
+            );
+          },
+        );
+        return exitGame;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: isDarkMode
+              ? Theme.of(context).colorScheme.background
+              : Theme.of(context).colorScheme.onBackground,
+          foregroundColor: isDarkMode
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).colorScheme.onSecondary,
+          title: const Center(
+              child: Text(
+            'My X and O',
+            style: TextStyle(
+              fontSize: 24,
+            ),
+          )),
+        ),
+        backgroundColor: isDarkMode ? Colors.black : null,
+        body: Stack(
+          children: [
+            Opacity(
+              opacity: 1.0,
+              child: Image.asset(
+                !isDarkMode
+                    ? 'assets/images/home_lightTheme/x_home_page.png'
+                    : 'assets/images/home_darkTheme/dark_home_theme_no_bg.png',
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
               ),
             ),
-          ),
-          Positioned(
-            bottom: isLandscape ? 1 : 60,
-            left: 10,
-            right: 10,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              clipBehavior: Clip.hardEdge,
-              width: width - 20,
-              decoration: BoxDecoration(
-                color: isDarkMode
-                    ? Theme.of(context).colorScheme.background
-                    : Theme.of(context).colorScheme.onBackground.withAlpha(250),
-                borderRadius: const BorderRadius.all(
-                  Radius.circular(15),
+            //  Text(
+            //           'Welcome MayorItua!',
+            //           textAlign: TextAlign.center,
+            //           style: TextStyle(
+            //             fontSize: 20,
+            //             fontWeight: FontWeight.w900,
+            //             color: Theme.of(context).colorScheme.primaryContainer,
+            //           ),
+            //         ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? Theme.of(context).colorScheme.background
+                      : Theme.of(context)
+                          .colorScheme
+                          .onBackground
+                          .withAlpha(250),
+                  borderRadius: const BorderRadius.all(
+                    Radius.circular(10),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const Shop(),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 34,
+                          color: isDarkMode
+                              ? Theme.of(context).colorScheme.secondary
+                              : Theme.of(context).colorScheme.primaryContainer,
+                        )),
+                  ],
                 ),
               ),
-              child: isLandscape
-                  ? SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: options
-                            .map((item) => Padding(
-                                  padding: EdgeInsets.only(right: width / 110),
-                                  child: item,
-                                ))
-                            .toList(),
+            ),
+            Positioned(
+              bottom: isLandscape ? 1 : 60,
+              left: 10,
+              right: 10,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                clipBehavior: Clip.hardEdge,
+                width: width - 20,
+                decoration: BoxDecoration(
+                  color: isDarkMode
+                      ? Theme.of(context).colorScheme.background
+                      : Theme.of(context)
+                          .colorScheme
+                          .onBackground
+                          .withAlpha(250),
+                  borderRadius: const BorderRadius.all(
+                    Radius.circular(15),
+                  ),
+                ),
+                child: isLandscape
+                    ? SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: options
+                              .map((item) => Padding(
+                                    padding:
+                                        EdgeInsets.only(right: width / 110),
+                                    child: item,
+                                  ))
+                              .toList(),
+                        ),
+                      )
+                    : Column(
+                        children: options,
                       ),
-                    )
-                  : Column(
-                      children: options,
-                    ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

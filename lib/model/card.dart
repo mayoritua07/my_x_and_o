@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:my_x_and_o/screens/shop.dart';
+import 'package:my_x_and_o/widgets/snackbar.dart';
 
 class CardBack extends StatelessWidget {
   const CardBack(
@@ -283,7 +285,22 @@ class CardPack extends StatelessWidget {
                   ),
                   backgroundColor: Colors.green,
                 ),
-                onPressed: onBuy,
+                onPressed: () {
+                  if (money >= price) {
+                    money -= price;
+                    onBuy();
+                  } else {
+                    // ScaffoldMessenger.of(context).clearSnackBars();
+                    // ScaffoldMessenger.of(context).showSnackBar(
+                    //   const SnackBar(
+                    //     content:
+                    //         Text("Insufficient money to purchase this pack!"),
+                    //   ),
+                    // );
+                    displayMySnackBar(
+                        context, "Insufficient money to purchase this pack!");
+                  }
+                },
                 label: Text(
                   "$price",
                   style: const TextStyle(color: Colors.white, fontSize: 18),
@@ -341,7 +358,7 @@ class _CardFrontBigState extends State<CardFrontBig> {
           children: [
             Center(
               child: Opacity(
-                opacity: 0.9,
+                opacity: 0.85,
                 child: Image.asset(
                   "assets/images/powerup/${widget.imageName}.png",
                   color: const Color.fromARGB(255, 192, 22, 10),
@@ -360,7 +377,9 @@ class _CardFrontBigState extends State<CardFrontBig> {
                   child: Text(
                     widget.title,
                     style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14),
+                        color: Colors.black,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16),
                   ),
                 ),
                 Padding(
@@ -368,9 +387,7 @@ class _CardFrontBigState extends State<CardFrontBig> {
                   child: Text(
                     widget.details,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.primary,
-                        fontSize: 16),
+                    style: const TextStyle(color: Colors.black, fontSize: 16),
                   ),
                 ),
               ],
