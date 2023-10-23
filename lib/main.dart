@@ -129,6 +129,7 @@ cards : include shop for cards, money, you will start with 3 of each card, nulli
 store locally, path, path provider, sql
 design logo
 change app name
+add extra screen to show quote before match
 sound effect everywhere, change powerup effect sound
 animation of winning and once game ends no more taps, popup immediately????, confirm this
 music should stop once screen is off
