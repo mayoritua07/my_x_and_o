@@ -12,6 +12,7 @@ import 'package:my_x_and_o/screens/wifi_play.dart';
 import 'package:my_x_and_o/screens/x_and_o.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_x_and_o/main.dart';
+import 'package:move_to_background/move_to_background.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -242,33 +243,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return WillPopScope(
       onWillPop: () async {
-        bool exitGame = false;
-        await showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: const Text("Exit App"),
-              content: const Center(
-                child: Text("Are you sure you wish to exit?"),
-              ),
-              actions: [
-                TextButton(
-                    onPressed: () {
-                      exitGame = true;
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("Yes")),
-                TextButton(
-                    onPressed: () {
-                      exitGame = false;
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("No"))
-              ],
-            );
-          },
-        );
-        return exitGame;
+        MoveToBackground.moveTaskToBack();
+        return false;
+        // bool exitGame = false;
+        // await showDialog(
+        //   context: context,
+        //   builder: (context) {
+        //     return AlertDialog(
+        //       title: const Text("Exit App"),
+        //       content: const Center(
+        //         child: Text("Are you sure you wish to exit?"),
+
+        //       ),
+        //       actions: [
+        //         TextButton(Logs
+        //             onPressed: () {
+        //               exitGame = true;
+        //               Navigator.of(context).pop();
+        //             },
+        //             child: const Text("Yes")),
+        //         TextButton(
+        //             onPressed: () {
+        //               exitGame = false;
+        //               Navigator.of(context).pop();
+        //             },
+        //             child: const Text("No"))
+        //       ],
+        //     );
+        //   },
+        // );
+        // return exitGame;
       },
       child: Scaffold(
         appBar: AppBar(

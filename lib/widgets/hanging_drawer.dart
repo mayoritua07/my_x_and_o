@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:my_x_and_o/main.dart';
@@ -134,9 +136,11 @@ class _HangingDrawerState extends ConsumerState<HangingDrawer> {
                   ),
                   child: Center(
                     child: Text(
-                      isX ? "X configure" : "O configure",
+                      isX
+                          ? "${jsonDecode(jsonEncode('←'))} X configure"
+                          : "O configure ${jsonDecode(jsonEncode('→'))}",
                       style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 21,
                           fontWeight: FontWeight.w400,
                           color: isDarkMode
                               ? Theme.of(context).colorScheme.secondary
