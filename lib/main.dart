@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -9,6 +10,7 @@ import 'package:my_x_and_o/providers/sound.dart';
 import 'package:my_x_and_o/screens/home_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'package:screen_state/screen_state.dart';
 
 final kColorScheme = ColorScheme.fromSeed(
     seedColor: const Color.fromARGB(255, 7, 90, 79),
@@ -69,18 +71,22 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
+  final _screen = Screen();
+  StreamSubscription<ScreenStateEvent>? _subscription;
+
   @override
   void initState() {
     WidgetsBinding.instance.addObserver(this);
     num = generateRandomPosition(-1);
     globalAudioPlayer.setSource(AssetSource(songList[num]));
+    startListening();
     super.initState();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     setState(() {
-      if (state == AppLifecycleState.paused || !mounted) {
+      if (state == AppLifecycleState.paused) {
         globalAudioPlayer.pause();
       }
     });
@@ -92,6 +98,18 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     globalAudioPlayer.release();
     super.dispose();
+  }
+
+  void startListening() {
+    try {
+      _subscription = _screen.screenStateStream!.listen(onData);
+    } on ScreenStateException catch (exception) {
+      print(exception);
+    }
+  }
+
+  void onData(event) {
+    print(event);
   }
 
   void backgroundMusic(int number) async {
@@ -126,12 +144,15 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
 /*
 cards : include shop for cards, money, you will start with 3 of each card, nullify and swap will be special cards, amssing wealth, displaying card bought, displaying only cards they have, improve packs description
+25 coins for winning, 50 coins for successfuly using a card
+
 store locally, path, path provider, sql
 design logo
 change app name
 add extra screen to show quote before match
 sound effect everywhere, change powerup effect sound
-animation of winning and once game ends no more taps, popup immediately????, confirm this
+animation of winning and once game ends no more taps,
+
 music should stop once screen is off
 closing app with back button
 configure snack bar everywhere and still set time

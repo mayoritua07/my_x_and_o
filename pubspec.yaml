@@ -42,8 +42,8 @@ dependencies:
   flutter_slidable: ^3.0.0
   get: ^4.6.6
   vibration: ^1.8.3
-
   move_to_background: ^1.0.2
+  screen_state: ^3.0.1
 
 dev_dependencies:
   flutter_test:

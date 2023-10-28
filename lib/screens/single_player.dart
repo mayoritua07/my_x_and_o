@@ -60,6 +60,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   late Widget swapCard;
   late Widget randomSwapCard;
   Map<Enum, Widget> cardListDisplay = {};
+  late AudioPlayer player;
 
   bool check(int position, List<int> positions, IncrementPattern pattern) {
     int incrementValue;
@@ -154,7 +155,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   void endingSound(String sound, void Function() nextPage) async {
     if (ref.read(soundEffectProvider)) {
-      final player = AudioPlayer();
+      player = AudioPlayer();
       await player.setSource(AssetSource(sound));
       await player.resume();
       Timer(const Duration(seconds: 2, milliseconds: 500), () async {
@@ -317,7 +318,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   void clickButton(void Function() nextPage) async {
     if (ref.read(soundEffectProvider)) {
-      final player = AudioPlayer();
+      player = AudioPlayer();
       await player.setSource(AssetSource("audio/click_button.mp3"));
       await player.resume();
     }
@@ -328,7 +329,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   }
 
   void nullifyPowerupSound() async {
-    final player = AudioPlayer();
+    player = AudioPlayer();
     if (ref.read(soundEffectProvider)) {
       await player.setSource(AssetSource("audio/nullify_sound.mp3"));
       // await player.seek(const Duration(seconds: 3));
@@ -446,7 +447,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   void powerupWorked() async {
     if (ref.read(soundEffectProvider)) {
-      final player = AudioPlayer();
+      player = AudioPlayer();
       await player.setSource(AssetSource("audio/powerup.mp3"));
       await player.resume();
     }
@@ -454,6 +455,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   void restartGame() {
     buttonSound(() {
+      player.stop();
       Navigator.of(context).pop();
       setState(() {
         for (final items in containerList) {
@@ -472,6 +474,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     buttonSound(() {
       Navigator.of(context).pop();
       Navigator.of(context).pop();
+      player.stop();
     });
   }
 
@@ -584,7 +587,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   void buttonSound(void Function() nextPage) async {
     if (ref.read(soundEffectProvider)) {
-      final player = AudioPlayer();
+      player = AudioPlayer();
       await player.setSource(AssetSource("audio/button_sound.mp3"));
       await player.resume();
     }

@@ -120,6 +120,18 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     });
   }
 
+  void nextPage() {
+    Navigator.of(context).pop();
+    // Navigator.of(context).push();
+    Timer(
+      const Duration(seconds: 2),
+      () {
+        Navigator.of(context).pop();
+        widget.changePage(context, value, cards);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     bool isDarkMode = ref.read(darkModeProvider);
@@ -395,10 +407,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                       ),
                       SizedBox(height: height / 12),
                       ElevatedButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          widget.changePage(context, value, cards);
-                        },
+                        onPressed: nextPage,
                         child: const Padding(
                           padding: EdgeInsets.symmetric(
                               vertical: 20, horizontal: 20),
