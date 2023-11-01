@@ -1,4 +1,20 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+
+final randomizer = Random();
+int generateRandomPosition() {
+  int randomValue = randomizer.nextInt(images.length);
+  return randomValue;
+}
+
+final List<String> quotes = [
+  "Thank God for life",
+  "Stay Happy",
+  "Joy Overflow"
+];
+
+final List<String> images = [];
 
 class QuoteScreen extends StatelessWidget {
   const QuoteScreen({super.key});
@@ -6,14 +22,11 @@ class QuoteScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-          child: Text(
-        'This is a nice quote',
-        style: Theme.of(context)
-            .textTheme
-            .displayLarge!
-            .copyWith(color: Theme.of(context).colorScheme.secondary),
-      )),
-    );
+        body: Image.asset(
+      images[generateRandomPosition()],
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+    ));
   }
 }

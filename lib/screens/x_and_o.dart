@@ -23,15 +23,17 @@ class GameScreen extends ConsumerStatefulWidget {
 }
 
 class _GameScreenState extends ConsumerState<GameScreen> {
+  late AudioPlayer player;
   late Player xPlayer;
   late Player oPlayer;
   String value = 'X';
-
+  late bool isDarkMode;
   List<ContainerBox> containerList = [];
   List<int> xPositions = [];
   List<int> oPositions = [];
   int xScore = 0;
   int oScore = 0;
+  List<int> winningPositions = [];
   String? decision;
 
   bool check(int position, List<int> positions, IncrementPattern pattern) {
@@ -61,35 +63,43 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     for (final position in positions.sublist(0, positions.length - 2)) {
       if (position == 1) {
         if (check(position, positions, IncrementPattern.horizontal)) {
+          winningPositions = [1, 2, 3];
           return true;
         }
         if (check(position, positions, IncrementPattern.vertical)) {
+          winningPositions = [1, 4, 7];
           return true;
         }
         if (check(position, positions, IncrementPattern.leadingDiagonal)) {
+          winningPositions = [1, 5, 9];
           return true;
         }
       }
       if (position == 2) {
         if (check(position, positions, IncrementPattern.vertical)) {
+          winningPositions = [2, 5, 8];
           return true;
         }
       }
       if (position == 3) {
         if (check(position, positions, IncrementPattern.vertical)) {
+          winningPositions = [3, 6, 9];
           return true;
         }
         if (check(position, positions, IncrementPattern.secondDiagonal)) {
+          winningPositions = [3, 5, 7];
           return true;
         }
       }
       if (position == 4) {
         if (check(position, positions, IncrementPattern.horizontal)) {
+          winningPositions = [4, 5, 6];
           return true;
         }
       }
       if (position == 7) {
         if (check(position, positions, IncrementPattern.horizontal)) {
+          winningPositions = [7, 8, 9];
           return true;
         }
       }
@@ -100,8 +110,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   @override
   void initState() {
     super.initState();
+    player = AudioPlayer();
     xPlayer = ref.read(xPlayerProvider);
     oPlayer = ref.read(oPlayerProvider);
+    isDarkMode = ref.read(darkModeProvider);
     for (int i = 1; i < 10; i++) {
       containerList.add(
           ContainerBox(onClicked: onClicked, position: i, player: Player()));
@@ -109,6 +121,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   void onClicked(int position) async {
+    if (decision != null) {
+      return;
+    }
     clickButton(() {});
     containerList[position - 1]
         .displayClicked(value == "X" ? xPlayer : oPlayer);
@@ -116,9 +131,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       xPositions.add(position);
       if (winner(xPositions)) {
         setState(() {
+          containerList[winningPositions[0] - 1].animateWinner();
+          Timer(const Duration(milliseconds: 300), () {
+            containerList[winningPositions[1] - 1].animateWinner();
+          });
+          Timer(const Duration(milliseconds: 600), () {
+            containerList[winningPositions[2] - 1].animateWinner();
+          });
+
           decision = 'X wins';
           xScore++;
-          popUp(false);
+          Timer(const Duration(milliseconds: 700), () {
+            popUp(false);
+          });
           value = 'O';
         });
         winningSound(() {});
@@ -132,9 +157,19 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       oPositions.add(position);
       if (winner(oPositions)) {
         setState(() {
+          containerList[winningPositions[0] - 1].animateWinner();
+          Timer(const Duration(milliseconds: 300), () {
+            containerList[winningPositions[1] - 1].animateWinner();
+          });
+          Timer(const Duration(milliseconds: 600), () {
+            containerList[winningPositions[2] - 1].animateWinner();
+          });
+
+          Timer(const Duration(milliseconds: 700), () {
+            popUp(false);
+          });
           decision = 'O wins';
           oScore++;
-          popUp(false);
           value = 'X';
         });
         winningSound(() {});
@@ -154,7 +189,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   void clickButton(void Function() nextPage) async {
     if (ref.read(soundEffectProvider)) {
-      final player = AudioPlayer();
       await player.setSource(AssetSource("audio/click_button.mp3"));
       await player.resume();
     }
@@ -193,6 +227,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   void restartGame() {
     buttonSound(() {
+      player.stop();
       setState(() {
         Navigator.of(context).pop();
         decision = null;
@@ -203,10 +238,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     });
     oPositions = [];
     xPositions = [];
+    winningPositions = [];
   }
 
   void quitGame() {
     buttonSound(() {
+      player.stop();
       Navigator.of(context).pop();
       Navigator.of(context).pop();
     });
@@ -226,8 +263,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                     decision ?? "Pause Menu",
                     style: TextStyle(
                         fontSize: 18,
-                        color:
-                            Theme.of(context).colorScheme.onPrimaryContainer),
+                        color: isDarkMode
+                            ? null
+                            : Theme.of(context).colorScheme.onPrimaryContainer),
                   ),
                 ),
                 content: Column(
@@ -275,9 +313,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: Icon(ref.read(soundTrackProvider)
-                                    ? Icons.music_note
-                                    : Icons.music_off),
+                                icon: Icon(
+                                  ref.read(soundTrackProvider)
+                                      ? Icons.music_note
+                                      : Icons.music_off,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     ref
@@ -287,16 +328,24 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                   clickButton(() {});
                                 },
                               ),
-                              const Text("Sound Track")
+                              Text(
+                                "Sound Track",
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              )
                             ],
                           ),
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: Icon(ref.read(soundEffectProvider)
-                                    ? Icons.volume_up
-                                    : Icons.volume_off),
+                                icon: Icon(
+                                  ref.read(soundEffectProvider)
+                                      ? Icons.volume_up
+                                      : Icons.volume_off,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     ref
@@ -306,7 +355,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                                   clickButton(() {});
                                 },
                               ),
-                              const Text("Sound Effects")
+                              Text(
+                                "Sound Effects",
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
                             ],
                           )
                         ],
@@ -321,8 +375,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isDarkMode = ref.read(darkModeProvider);
-
     double width = MediaQuery.of(context).size.width;
     double height = MediaQuery.of(context).size.height;
     bool isLandscape = width > 650;

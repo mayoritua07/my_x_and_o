@@ -34,55 +34,127 @@ class _ShopState extends ConsumerState<Shop> {
     ref.watch(darkModeProvider);
 
     final isDarkMode = ref.read(darkModeProvider);
-    final cardsDisplayMap = {
+    final Map<Enum, Widget> cardsDisplayMap = {
       Cards.block: const BlockCardBig(onApply: nothing),
       Cards.nullify: const NullifyCardBig(onApply: nothing),
       Cards.randomSwap: const RandomSwapCardBig(onApply: nothing),
       Cards.swap: const SwapCardBig(onApply: nothing),
     };
+    Map<Enum, int> selectedCardsMap = {};
     // common cards include block and randomSwap
     // special cards include nullify and swap
 
-    List chooseCard(List<Enum> cardList, numberOfCards) {
-      final selectedCardsDisplay = [];
+    Map<Enum, int> chooseCard(List<Enum> cardList, numberOfCards) {
+      selectedCardsMap = {};
       for (int i = 0; i < numberOfCards; i++) {
         final chosenCard = cardList[generateRandomPosition(cardList.length)];
         ref.read(cardProvider.notifier).addCard(chosenCard);
-        selectedCardsDisplay.add(cardsDisplayMap[chosenCard]);
+        if (selectedCardsMap[chosenCard] != null) {
+          selectedCardsMap[chosenCard] = selectedCardsMap[chosenCard]! + 1;
+        } else {
+          selectedCardsMap[chosenCard] = 1;
+        }
       }
-      return selectedCardsDisplay;
+      return selectedCardsMap;
+    }
+
+    void showBoughtCards(Map<Enum, int> selectedCards) {
+      setState(() {
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              actions: [
+                const SizedBox(height: 12),
+                if (selectedCardsMap.length == 1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ...selectedCards.entries.map(
+                        (item) => Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 15,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.tertiary,
+                              foregroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .tertiaryContainer,
+                              child: Text(
+                                "${item.value}",
+                                style: const TextStyle(
+                                    fontSize: 14, fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                            cardsDisplayMap[item.key]!
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                if (selectedCardsMap.length > 1)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        ...selectedCards.entries.map(
+                          (item) => Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 15,
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.tertiary,
+                                foregroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .tertiaryContainer,
+                                child: Text(
+                                  "${item.value}",
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                              cardsDisplayMap[item.key]!
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Center(
+                  child: TextButton(
+                    style: ElevatedButton.styleFrom(
+                        shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(0),
+                    )),
+                    onPressed: (() {
+                      Navigator.of(context).pop();
+                    }),
+                    child: Text(
+                      "Ok",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      });
     }
 
     void regularPack() {
       final selectedCards = chooseCard(regularCardsList, 1);
-      print(selectedCards);
-      setState(() {});
-
-      //   setState(() {
-      //     showDialog(
-      //       context: context,
-      //       builder: (context) {
-      //         return SizedBox(
-      //           child: Expanded(
-      //             child: SingleChildScrollView(
-      //               scrollDirection: Axis.horizontal,
-      //               child: Row(
-      //                 children: [
-      //                   cardsDisplayMap[chosenCard]!,
-      //                 ],
-      //               ),
-      //             ),
-      //           ),
-      //         );
-      //       },
-      //     );
-      //   });
+      showBoughtCards(selectedCards);
     }
 
     void specialPack() {
       final selectedCards = chooseCard(specialCardsList, 1);
-      print(selectedCards);
-      setState(() {});
+      showBoughtCards(selectedCards);
     }
 
     return Scaffold(

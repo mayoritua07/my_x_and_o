@@ -134,20 +134,52 @@ class _HangingDrawerState extends ConsumerState<HangingDrawer> {
                         ? Theme.of(context).colorScheme.background
                         : Theme.of(context).colorScheme.onBackground,
                   ),
-                  child: Center(
-                    child: Text(
-                      isX
-                          ? "${jsonDecode(jsonEncode('←'))} X configure"
-                          : "O configure ${jsonDecode(jsonEncode('→'))}",
-                      style: TextStyle(
-                          fontSize: 21,
-                          fontWeight: FontWeight.w400,
-                          color: isDarkMode
-                              ? Theme.of(context).colorScheme.secondary
-                              : Theme.of(context)
-                                  .colorScheme
-                                  .secondaryContainer),
-                    ),
+                  child: Row(
+                    mainAxisAlignment:
+                        isX ? MainAxisAlignment.end : MainAxisAlignment.start,
+                    children: [
+                      if (isX)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            "${jsonDecode(jsonEncode('←'))}",
+                            style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                                color: isDarkMode
+                                    ? Theme.of(context).colorScheme.secondary
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .secondaryContainer),
+                          ),
+                        ),
+                      Text(
+                        isX ? " X configure" : "O configure ",
+                        style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w400,
+                            color: isDarkMode
+                                ? Theme.of(context).colorScheme.secondary
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .secondaryContainer),
+                      ),
+                      if (!isX)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            "${jsonDecode(jsonEncode('→'))}",
+                            style: TextStyle(
+                                fontSize: 25,
+                                fontWeight: FontWeight.bold,
+                                color: isDarkMode
+                                    ? Theme.of(context).colorScheme.secondary
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .secondaryContainer),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),

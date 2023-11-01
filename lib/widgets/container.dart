@@ -17,6 +17,7 @@ class ContainerBox extends StatefulWidget {
 
   late void Function() resetScreen;
   late void Function() activePowerup;
+  late void Function() animateWinner;
   late void Function(Player newPlayer) displayClicked;
 
   @override
@@ -46,6 +47,17 @@ class _ContainerBoxState extends State<ContainerBox> {
     widget.activePowerup = () {
       setState(() {
         widget.player = const CardBack();
+      });
+    };
+
+    widget.animateWinner = () {
+      setState(() {
+        widget.player = AnimatedScale(
+          scale: 1.8,
+          curve: Curves.easeInOut,
+          duration: const Duration(seconds: 10),
+          child: widget.player,
+        );
       });
     };
 

@@ -40,7 +40,7 @@ class CardFront extends StatelessWidget {
     return InkWell(
       onTap: apply,
       child: Container(
-        margin: const EdgeInsets.all(10),
+        margin: const EdgeInsets.symmetric(horizontal: 10),
         padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 0),
         width: 110,
         height: 150,
@@ -290,13 +290,6 @@ class CardPack extends StatelessWidget {
                     money -= price;
                     onBuy();
                   } else {
-                    // ScaffoldMessenger.of(context).clearSnackBars();
-                    // ScaffoldMessenger.of(context).showSnackBar(
-                    //   const SnackBar(
-                    //     content:
-                    //         Text("Insufficient money to purchase this pack!"),
-                    //   ),
-                    // );
                     displayMySnackBar(
                         context, "Insufficient money to purchase this pack!");
                   }

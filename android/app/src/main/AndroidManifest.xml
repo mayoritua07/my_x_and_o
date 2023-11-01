@@ -1,9 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.my_x_and_o">
    <application
-        android:label="XoXo"
+        android:label="X0X0"
         android:name="${applicationName}"
-        android:icon="@mipmap/icon">
+        android:icon="@mipmap/icon1">
         <activity
             android:name=".MainActivity"
             android:exported="true"

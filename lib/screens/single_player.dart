@@ -37,6 +37,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   late String value;
   late String myValue;
   late String compValue;
+  late bool isDarkMode;
   List<ContainerBox> containerList = [];
   List<int> xPositions = [];
   List<int> oPositions = [];
@@ -59,6 +60,7 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   late Widget nullifyCard;
   late Widget swapCard;
   late Widget randomSwapCard;
+  List<int> winningPositions = [];
   Map<Enum, Widget> cardListDisplay = {};
   late AudioPlayer player;
 
@@ -89,35 +91,43 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     for (final position in positions.sublist(0, positions.length - 2)) {
       if (position == 1) {
         if (check(position, positions, IncrementPattern.horizontal)) {
+          winningPositions = [1, 2, 3];
           return true;
         }
         if (check(position, positions, IncrementPattern.vertical)) {
+          winningPositions = [1, 4, 7];
           return true;
         }
         if (check(position, positions, IncrementPattern.leadingDiagonal)) {
+          winningPositions = [1, 5, 9];
           return true;
         }
       }
       if (position == 2) {
         if (check(position, positions, IncrementPattern.vertical)) {
+          winningPositions = [2, 5, 8];
           return true;
         }
       }
       if (position == 3) {
         if (check(position, positions, IncrementPattern.vertical)) {
+          winningPositions = [3, 6, 9];
           return true;
         }
         if (check(position, positions, IncrementPattern.secondDiagonal)) {
+          winningPositions = [3, 5, 7];
           return true;
         }
       }
       if (position == 4) {
         if (check(position, positions, IncrementPattern.horizontal)) {
+          winningPositions = [4, 5, 6];
           return true;
         }
       }
       if (position == 7) {
         if (check(position, positions, IncrementPattern.horizontal)) {
+          winningPositions = [7, 8, 9];
           return true;
         }
       }
@@ -128,6 +138,8 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   @override
   void initState() {
     super.initState();
+    player = AudioPlayer();
+    isDarkMode = ref.read(darkModeProvider);
     xPlayer = ref.read(xPlayerProvider);
     oPlayer = ref.read(oPlayerProvider);
     for (int i = 1; i < 10; i++) {
@@ -254,6 +266,9 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   }
 
   void onClicked(int position) async {
+    if (decision != null) {
+      return;
+    }
     tap++;
     userApplyingCard = false;
     clickButton(() {});
@@ -264,11 +279,21 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     if (value == 'X') {
       xPositions.add(position);
       if (winner(xPositions)) {
+        containerList[winningPositions[0] - 1].animateWinner();
+        Timer(const Duration(milliseconds: 300), () {
+          containerList[winningPositions[1] - 1].animateWinner();
+        });
+        Timer(const Duration(milliseconds: 600), () {
+          containerList[winningPositions[2] - 1].animateWinner();
+        });
+
+        Timer(const Duration(milliseconds: 700), () {
+          popUp(false);
+        });
         decision = myValue == "X" ? "You win" : "You lose";
         xScore++;
         setState(() {
           value = 'O';
-          popUp(false);
         });
         endingSound(myValue == "X" ? winningSound : losingSound, () {});
 
@@ -282,11 +307,20 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
     } else {
       oPositions.add(position);
       if (winner(oPositions)) {
-        value = 'X';
-        decision = myValue == "O" ? "You win" : "You lose";
-        setState(() {
+        containerList[winningPositions[0] - 1].animateWinner();
+        Timer(const Duration(milliseconds: 300), () {
+          containerList[winningPositions[1] - 1].animateWinner();
+        });
+        Timer(const Duration(milliseconds: 600), () {
+          containerList[winningPositions[2] - 1].animateWinner();
+        });
+
+        Timer(const Duration(milliseconds: 700), () {
           popUp(false);
         });
+        value = 'X';
+        decision = myValue == "O" ? "You win" : "You lose";
+        setState(() {});
         endingSound(myValue == "O" ? winningSound : losingSound, () {
           oScore++;
         });
@@ -456,13 +490,14 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
   void restartGame() {
     buttonSound(() {
       player.stop();
-      Navigator.of(context).pop();
       setState(() {
+        Navigator.of(context).pop();
         for (final items in containerList) {
           items.resetScreen();
         }
         decision = null;
         oPositions = [];
+        winningPositions = [];
         tap = 0;
         xPositions = [];
         computerPlay();
@@ -492,8 +527,9 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                     decision ?? "Pause Menu",
                     style: TextStyle(
                         fontSize: 18,
-                        color:
-                            Theme.of(context).colorScheme.onPrimaryContainer),
+                        color: isDarkMode
+                            ? null
+                            : Theme.of(context).colorScheme.onPrimaryContainer),
                   ),
                 ),
                 content: Column(
@@ -541,9 +577,12 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: Icon(ref.read(soundTrackProvider)
-                                    ? Icons.music_note
-                                    : Icons.music_off),
+                                icon: Icon(
+                                  ref.read(soundTrackProvider)
+                                      ? Icons.music_note
+                                      : Icons.music_off,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     ref
@@ -553,16 +592,24 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                                   clickButton(() {});
                                 },
                               ),
-                              const Text("Sound Track")
+                              Text(
+                                "Sound Track",
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              )
                             ],
                           ),
                           Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: Icon(ref.read(soundEffectProvider)
-                                    ? Icons.volume_up
-                                    : Icons.volume_off),
+                                icon: Icon(
+                                  ref.read(soundEffectProvider)
+                                      ? Icons.volume_up
+                                      : Icons.volume_off,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                                 onPressed: () {
                                   setState(() {
                                     ref
@@ -572,7 +619,12 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                                   clickButton(() {});
                                 },
                               ),
-                              const Text("Sound Effects")
+                              Text(
+                                "Sound Effects",
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                              ),
                             ],
                           )
                         ],
@@ -683,7 +735,6 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
 
   @override
   Widget build(BuildContext context) {
-    bool isDarkMode = ref.read(darkModeProvider);
     double height = MediaQuery.of(context).size.height;
     double width = MediaQuery.of(context).size.width;
     bool isLandscape = width > 650;

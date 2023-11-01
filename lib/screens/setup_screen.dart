@@ -10,6 +10,7 @@ import 'package:my_x_and_o/providers/cards_provider.dart';
 import 'package:my_x_and_o/providers/o_player_provider.dart';
 import 'package:my_x_and_o/providers/sound.dart';
 import 'package:my_x_and_o/providers/x_player_provider.dart';
+import 'package:my_x_and_o/screens/quote_screen.dart';
 import 'package:my_x_and_o/screens/shop.dart';
 import 'package:my_x_and_o/widgets/snackbar.dart';
 
@@ -31,8 +32,8 @@ class SetupScreen extends ConsumerStatefulWidget {
 class _SetupScreenState extends ConsumerState<SetupScreen> {
   bool tapped = true;
   bool useCards = false;
-  List<Map<Enum, Widget>> cardsDisplayList = [];
-  Map originalCards = {};
+  Map<Enum, Widget> cardsDisplayList = {};
+  Map<Enum, Widget> originalCards = {};
   String value = "X";
   List<Enum> cards = [];
   final db = FirebaseFirestore.instance;
@@ -52,15 +53,36 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
       addingCards(Cards.swap);
     });
     originalCards = {
-      Cards.block: blockCard,
-      Cards.nullify: nullifyCard,
-      Cards.randomSwap: randomSwapCard,
-      Cards.swap: swapCard
+      Cards.block: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 20),
+          blockCard,
+        ],
+      ),
+      Cards.nullify: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 20),
+          nullifyCard,
+        ],
+      ),
+      Cards.randomSwap: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 20),
+          randomSwapCard,
+        ],
+      ),
+      Cards.swap: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [const SizedBox(height: 20), swapCard],
+      ),
     };
 
     for (final item in ref.read(cardProvider).entries) {
       if (item.value > 0) {
-        cardsDisplayList.add({item.key: originalCards[item.key]});
+        cardsDisplayList.addAll({item.key: originalCards[item.key]!});
       }
     }
 
@@ -83,26 +105,17 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     setState(() {
       if (cards.contains(value)) {
         cards.remove(value);
-        for (final item in cardsDisplayList) {
-          if (item.keys.toList()[0] == value) {
-            cardsDisplayList[cardsDisplayList.indexOf(item)][value] =
-                originalCards[value];
-          }
-        }
+        cardsDisplayList[value] = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [const SizedBox(height: 20), originalCards[value]!],
+        );
       } else if (cards.length < 2) {
         cards.add(value);
-        for (final item in cardsDisplayList) {
-          if (item.keys.toList()[0] == value) {
-            cardsDisplayList[cardsDisplayList.indexOf(item)][value] = Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [const Icon(Icons.check), originalCards[value]],
-            );
-          }
-        }
+        cardsDisplayList[value] = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [const Icon(Icons.check), originalCards[value]!],
+        );
       } else {
-        // ScaffoldMessenger.of(context).clearSnackBars();
-        // ScaffoldMessenger.of(context).showSnackBar(
-        //     const SnackBar(content: Text("You can't selct more than 2 cards")));
         displayMySnackBar(context, "You can't selct more than 2 cards");
       }
     });
@@ -120,16 +133,21 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
     });
   }
 
-  void nextPage() {
+  void nextPage() async {
     Navigator.of(context).pop();
-    // Navigator.of(context).push();
-    Timer(
-      const Duration(seconds: 2),
-      () {
-        Navigator.of(context).pop();
-        widget.changePage(context, value, cards);
-      },
+    widget.changePage(context, value, cards);
+    BuildContext? newContext;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) {
+          newContext = context;
+          return const QuoteScreen();
+        },
+      ),
     );
+    Timer(const Duration(seconds: 2), () {
+      Navigator.of(newContext!).pop();
+    });
   }
 
   @override
@@ -272,17 +290,11 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                         SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: Row(
-                              children: cardsDisplayList
-                                  .map((item) => item.values.toList()[0])
-                                  .toList(),
-                            )),
+                                children: cardsDisplayList.values.toList())),
                       ],
                     ),
                   ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      widget.changePage(context, value, cards);
-                    },
+                    onPressed: nextPage,
                     child: const Padding(
                       padding:
                           EdgeInsets.symmetric(vertical: 20, horizontal: 20),
@@ -442,10 +454,8 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
                               SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: Row(
-                                    children: cardsDisplayList
-                                        .map((item) => item.values.toList()[0])
-                                        .toList(),
-                                  )),
+                                      children:
+                                          cardsDisplayList.values.toList())),
                             ],
                           ),
                       ],

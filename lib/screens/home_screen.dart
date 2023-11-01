@@ -110,7 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             builder: (context) => SetupScreen(
               changePage: ((context, value, cards) =>
                   Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) => OnlinePlay(
+                    builder: (context) => OnlinePlay.host(
                       value: value,
                       cards: cards,
                     ),
@@ -119,7 +119,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         );
       },
-      () {},
+      () {
+        Navigator.of(context).pop();
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const OnlinePlay.join(
+              value: '',
+              cards: [],
+            ),
+          ),
+        );
+      },
     ];
 
     final List<Widget> options = [
