@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:my_x_and_o/providers/cards_provider.dart';
 import 'package:my_x_and_o/screens/shop.dart';
-import 'package:my_x_and_o/widgets/codeInput.dart';
+import 'package:my_x_and_o/widgets/code_input.dart';
+import 'package:my_x_and_o/widgets/info_page.dart';
 import 'package:my_x_and_o/widgets/snackbar.dart';
 import 'package:vibration/vibration.dart';
 import 'package:audioplayers/audioplayers.dart';
@@ -19,23 +21,28 @@ import 'package:uuid/uuid.dart';
 
 enum IncrementPattern { horizontal, vertical, leadingDiagonal, secondDiagonal }
 
+String? kmatchCode;
+
 final randomizer = Random();
 
 class OnlinePlay extends ConsumerStatefulWidget {
-  const OnlinePlay.host(
+  OnlinePlay.host(
       {super.key,
       required this.value,
       required this.cards,
+      required this.useCards,
       this.isHosting = true});
-  const OnlinePlay.join(
+  OnlinePlay.join(
       {super.key,
       required this.value,
+      this.useCards = false,
       required this.cards,
       this.isHosting = false});
 
   final bool isHosting;
   final String value;
-  final List<Enum> cards;
+  List<Enum> cards;
+  final bool useCards;
 
   @override
   ConsumerState<OnlinePlay> createState() {
@@ -48,16 +55,15 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   late Player oPlayer;
   late String value;
   late String myValue;
-  late String compValue;
+  late String opponentValue;
   late bool isDarkMode;
+  late bool useCards;
   List<ContainerBox> containerList = [];
   List<int> xPositions = [];
   List<int> oPositions = [];
   int xScore = 0;
   int oScore = 0;
   int tap = 0;
-  bool computerPlayed = true;
-  bool userPlayed = false;
   String? decision;
   bool isConnected = false;
   final winningSound = "audio/win_sound.mp3";
@@ -65,10 +71,11 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   bool userApplyingCard = false;
   bool getPosition = false;
   String? feedback;
-  List<int> myCardPosition = [];
-  List<int> computerCardPosition = [];
-  Widget? userActiveCard;
-  Widget? computerActiveCard;
+  List myCardPosition = [];
+  List opponentCardPosition = [];
+  Widget? myActiveCard;
+  Widget? opponentActiveCard;
+  Map<String, dynamic> messageDetails = {};
   late Widget blockCard;
   late Widget nullifyCard;
   late Widget swapCard;
@@ -78,6 +85,8 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   late AudioPlayer player;
   late String matchCode;
   late Map<Enum, Widget> possibleCardList = {};
+  final db = FirebaseFirestore.instance;
+  late Widget joinWidget;
 
   bool check(int position, List<int> positions, IncrementPattern pattern) {
     int incrementValue;
@@ -153,10 +162,8 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   @override
   void initState() {
     super.initState();
-    if (widget.isHosting) {
-      matchCode = (const Uuid().v1()).substring(0, 8);
-    }
-
+    useCards = widget.useCards;
+    joinWidget = InputCode(onPressed: checkCode);
     player = AudioPlayer();
     isDarkMode = ref.read(darkModeProvider);
     xPlayer = ref.read(xPlayerProvider);
@@ -167,7 +174,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     }
 
     value = widget.value;
-    compValue = value == "X" ? "O" : "X";
+    opponentValue = value == "X" ? "O" : "X";
     myValue = widget.value;
     blockCard = BlockCard(onApply: onBlockCard);
     nullifyCard = NullifyCard(onApply: onNullifyCard);
@@ -183,21 +190,70 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     for (final item in widget.cards) {
       cardListDisplay.addAll({item: possibleCardList[item]!});
     }
+    if (widget.isHosting) {
+      matchCode = (const Uuid().v1()).substring(0, 8);
+      kmatchCode = matchCode;
+      hostSetup();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (widget.isHosting) {
+      db.collection(matchCode).doc(matchCode).delete();
+    }
+    super.dispose();
   }
 
   void hostSetup() {
-    // create room
-    // and put information
+    db.collection(matchCode).doc(matchCode).set({
+      "value": myValue,
+      "cards": useCards,
+    });
   }
 
-
   void checkCode(String code) {
-    // if code is correct
+    if (code == '') {
+      // print("code can not be null");
+      return;
+    }
+    matchCode = code;
+    db.collection(matchCode).doc(code).get().then((document) {
+      final data = document.data();
+      if (data != null) {
+        value = data['value'];
+        useCards = data["cards"];
+        myValue = value == "X" ? "O" : "X";
+        setState(() {
+          joinWidget = InfoPage(
+            onPressed: beginMatch,
+            useCards: useCards,
+            value: myValue,
+          );
+        });
+      } else {
+        // print("Invalid code");
+      }
+    }, onError: (e) {
+      "Problem retrieving data";
+    }
+        // TODO show scaffold,
+        );
+
     // get data, pop text input and load info page
     // else scaffold messenger
   }
 
-  void beginMatch(List<Enum>cards){
+  void beginMatch(List<Enum> cards) async {
+    widget.cards = cards;
+    await db.collection(matchCode).doc(matchCode).set({"isConnected": true});
+    // send info to start
+    setState(() {
+      for (final item in widget.cards) {
+        cardListDisplay.addAll({item: possibleCardList[item]!});
+      }
+      isConnected = true;
+    });
     // doing cards and value
   }
 
@@ -231,13 +287,16 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   }
 
   void userPlay(int pos) {
-    if (computerActiveCard != null && !userApplyingCard && feedback == null) {
-      if (computerActiveCard == blockCard) {
-        if (computerCardPosition.contains(pos)) {
+    if (value != myValue) {
+      return;
+    }
+    if (opponentActiveCard != null && !userApplyingCard && feedback == null) {
+      if (opponentActiveCard == blockCard) {
+        if (opponentCardPosition.contains(pos)) {
           setState(() {
             containerList[pos - 1].resetScreen();
-            computerActiveCard = null;
-            computerCardPosition = [];
+            opponentActiveCard = null;
+            opponentCardPosition = [];
             Vibration.vibrate();
             feedback = "You have been Blocked!";
             Timer(const Duration(milliseconds: 1000), () {
@@ -246,18 +305,15 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
               });
             });
           });
-          userPlayed = !userPlayed;
-          computerPlayed = !computerPlayed;
-          value = compValue;
+          value = opponentValue;
           tap++;
-          computerPlay();
+
           return;
         }
-      } else if (computerActiveCard == swapCard) {
-        if (computerCardPosition.contains(pos)) {
+      } else if (opponentActiveCard == swapCard) {
+        if (opponentCardPosition[0] == pos) {
           containerList[pos - 1].resetScreen();
-          computerCardPosition.remove(pos);
-          pos = computerCardPosition[0];
+          pos = opponentCardPosition[1];
           setState(() {
             containerList[pos - 1].resetScreen();
             Vibration.vibrate();
@@ -269,12 +325,26 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             });
           });
         }
+      } else if (opponentActiveCard == randomSwapCard) {
+        if (opponentCardPosition[0] == pos) {
+          containerList[pos - 1].resetScreen();
+          pos = generateRandomPosition();
+          setState(() {
+            Vibration.vibrate();
+            feedback = "Your tile has been swapped!";
+            Timer(const Duration(milliseconds: 1000), () {
+              setState(() {
+                feedback = null;
+              });
+            });
+          });
+        }
       }
       setState(() {
-        computerActiveCard = null;
-        computerCardPosition = [];
+        opponentActiveCard = null;
+        opponentCardPosition = [];
       });
-    } else if (userPlayed || userActiveCard == null) {
+    } else if (myActiveCard == null) {
       if (selectedTileUsedUp(pos)) {
         containerList[pos - 1].resetScreen();
         return;
@@ -287,7 +357,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       setState(() {
         feedback = null;
       });
-      if (userActiveCard == swapCard && myCardPosition.length == 1) {
+      if (myActiveCard == swapCard && myCardPosition.length == 1) {
         userApplyingCard = false;
         setState(() {
           getPosition = true;
@@ -301,17 +371,62 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     onClicked(pos);
   }
 
+  void intepreteMessage(Map<String, dynamic> message) {
+    db.collection(matchCode).doc(matchCode).get().then((document) {
+      final info = document.data()!;
+      if (info["isConnected"] != null) {
+        setState(() {
+          isConnected = true;
+        });
+        return;
+      }
+      if (tap == info["tap"]) {
+        // To prevent intepreting self sent message
+        return;
+      }
+      tap = info["tap"] as int;
+      opponentActiveCard = info["activeCard"] as Widget?;
+      opponentCardPosition = info["cardPosition"];
+      setState(() {
+        value = opponentValue;
+        feedback = info["feedback"];
+        onClicked(info["position"]);
+        Timer(const Duration(milliseconds: 1000), () {
+          feedback = null;
+        });
+      });
+      value = myValue;
+    }, onError: (e) {
+      "Issue with network";
+    });
+  }
+
+  void sendMessage(pos) {
+    messageDetails = {
+      "tap": tap,
+      "position": pos,
+      "cardPosition": myCardPosition,
+      "activeCard": myActiveCard,
+      "feedback": null
+    };
+    // add feedback to message details
+    db.collection(matchCode).doc(matchCode).set(messageDetails);
+    messageDetails = {};
+  }
+
   void onClicked(int position) async {
-    if (decision != null) {
+    if (decision != null ||
+        xPositions.contains(position) ||
+        oPositions.contains(position)) {
       return;
     }
+
     tap++;
     userApplyingCard = false;
     clickButton(() {});
     containerList[position - 1]
         .displayClicked(value == "X" ? xPlayer : oPlayer);
-    userPlayed = !userPlayed;
-    computerPlayed = !computerPlayed;
+
     if (value == 'X') {
       xPositions.add(position);
       if (winner(xPositions)) {
@@ -328,18 +443,12 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         });
         decision = myValue == "X" ? "You win" : "You lose";
         xScore++;
-        setState(() {
-          value = 'O';
-        });
         endingSound(myValue == "X" ? winningSound : losingSound, () {});
-
+        sendMessage(position);
+        value = opponentValue;
         return;
       }
-
-      setState(() {
-        value = 'O';
-        computerPlay();
-      });
+      value = opponentValue;
     } else {
       oPositions.add(position);
       if (winner(oPositions)) {
@@ -354,19 +463,17 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         Timer(const Duration(milliseconds: 700), () {
           popUp(false);
         });
-        value = 'X';
+
         decision = myValue == "O" ? "You win" : "You lose";
         setState(() {});
         endingSound(myValue == "O" ? winningSound : losingSound, () {
           oScore++;
         });
-
+        sendMessage(position);
+        value = opponentValue;
         return;
       }
-      setState(() {
-        value = 'X';
-        computerPlay();
-      });
+      value = opponentValue;
     }
     if (spaceUsedUp()) {
       setState(() {
@@ -374,13 +481,14 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         popUp(false);
       });
     }
+    sendMessage(position);
   }
 
   int generateRandomPosition() {
     int randomValue = randomizer.nextInt(9) + 1;
     if (oPositions.contains(randomValue) ||
         xPositions.contains(randomValue) ||
-        computerCardPosition.contains(randomValue)) {
+        opponentCardPosition.contains(randomValue)) {
       return generateRandomPosition();
     }
     return randomValue;
@@ -411,110 +519,6 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     // });
   }
 
-  void computerPlay() {
-    if (computerPlayed) {
-      return;
-    }
-    if (tap < 4) {
-      if (randomizer.nextBool()) {
-        int num = 2;
-        if (userActiveCard != null) {
-          num = 3;
-        }
-        int choice = randomizer.nextInt(num);
-        // Block is 0, swap is 1, nullify is 2
-        if (choice == 0) {
-          setState(() {
-            computerActiveCard = blockCard;
-            computerCardPosition.add(generateRandomPosition());
-          });
-        } else if (choice == 1) {
-          setState(() {
-            computerActiveCard = swapCard;
-            computerCardPosition.add(generateRandomPosition());
-            computerCardPosition.add(generateRandomPosition());
-          });
-        } else if (choice == 2) {
-          setState(() {
-            computerActiveCard = nullifyCard;
-            if (userActiveCard != null) {
-              feedback = "Your card was nullified!";
-              Vibration.vibrate();
-              containerList[myCardPosition[0] - 1].resetScreen();
-            }
-            userActiveCard = null;
-            myCardPosition = [];
-
-            Timer(const Duration(seconds: 1), () {
-              setState(() {
-                feedback = null;
-                computerActiveCard = null;
-              });
-            });
-          });
-        }
-      }
-    }
-    int randomValue = generateRandomPosition();
-
-    if (userActiveCard != null) {
-      if (userActiveCard == blockCard) {
-        if (myCardPosition.contains(randomValue)) {
-          setState(() {
-            value = myValue;
-            userPlayed = !userPlayed;
-            computerPlayed = !computerPlayed;
-            userActiveCard = null;
-            powerupWorked();
-            feedback = "Blocked!";
-            for (final item in myCardPosition) {
-              containerList[item - 1].resetScreen();
-            }
-            myCardPosition = [];
-            Timer(const Duration(milliseconds: 1000), () {
-              setState(() {
-                feedback = null;
-              });
-            });
-          });
-          tap++;
-          return;
-        }
-      } else if (userActiveCard == swapCard ||
-          userActiveCard == randomSwapCard) {
-        if (myCardPosition[0] == randomValue) {
-          powerupWorked();
-          randomValue = userActiveCard == swapCard
-              ? myCardPosition[1]
-              : generateRandomPosition();
-          setState(() {
-            feedback = "Swapped!";
-            Timer(const Duration(milliseconds: 1000), () {
-              setState(() {
-                feedback = null;
-              });
-            });
-          });
-        }
-      }
-
-      setState(() {
-        userActiveCard = null;
-        for (final item in myCardPosition) {
-          containerList[item - 1].resetScreen();
-        }
-        myCardPosition = [];
-      });
-    }
-
-    Timer(Duration(milliseconds: randomizer.nextInt(200) + 200), () {
-      setState(() {
-        onClicked(randomValue);
-        containerList[randomValue - 1].tapped = true;
-      });
-    });
-  }
-
   void powerupWorked() async {
     if (ref.read(soundEffectProvider)) {
       player = AudioPlayer();
@@ -536,7 +540,6 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         winningPositions = [];
         tap = 0;
         xPositions = [];
-        computerPlay();
       });
     });
   }
@@ -694,7 +697,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       displayMySnackBar(context, "You can no longer activate cards");
       return;
     }
-    if (userActiveCard != null) {
+    if (myActiveCard != null) {
       // ScaffoldMessenger.of(context).clearSnackBars();
       // ScaffoldMessenger.of(context).showSnackBar(
       //   const SnackBar(content: Text("A card has been used")),
@@ -713,7 +716,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         feedback = "Guess Opponent next position";
         getPosition = true;
         userApplyingCard = false;
-        userActiveCard = blockCard;
+        myActiveCard = blockCard;
         ref.read(cardProvider.notifier).reduceCard(Cards.block);
       });
     } else {
@@ -726,7 +729,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       setState(() {
         feedback = "Guess Opponent next position";
         getPosition = true;
-        userActiveCard = swapCard;
+        myActiveCard = swapCard;
         ref.read(cardProvider.notifier).reduceCard(Cards.swap);
       });
     } else {
@@ -739,7 +742,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       setState(() {
         feedback = "Guess Opponent next position";
         getPosition = true;
-        userActiveCard = randomSwapCard;
+        myActiveCard = randomSwapCard;
         userApplyingCard = false;
         ref.read(cardProvider.notifier).reduceCard(Cards.randomSwap);
       });
@@ -750,7 +753,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void onNullifyCard() {
     if (ref.read(cardProvider)[Cards.nullify]! > 0) {
-      userActiveCard = nullifyCard;
+      myActiveCard = nullifyCard;
       nullifyPowerupSound();
       setState(() {
         feedback = "Nullified!";
@@ -759,8 +762,8 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             feedback = null;
           });
         });
-        computerCardPosition = [];
-        computerActiveCard = null;
+        opponentCardPosition = [];
+        opponentActiveCard = null;
         userApplyingCard = false;
         ref.read(cardProvider.notifier).reduceCard(Cards.nullify);
       });
@@ -833,270 +836,152 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
           )
         ],
       ),
-      body: isConnected
-          ? SingleChildScrollView(
-              child: !isLandscape
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 10, horizontal: 15),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  if (computerActiveCard != null)
-                                    const CardBack(),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 15, horizontal: 30),
-                                    decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .tertiary,
-                                        borderRadius:
-                                            BorderRadius.circular(15)),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          '$xScore',
-                                          style: TextStyle(
-                                              fontSize: width / 6,
-                                              color: xPlayer.color,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        Text(
-                                          ':',
-                                          style: TextStyle(
-                                              fontSize: width / 8,
-                                              fontWeight: FontWeight.bold,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimary),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        Text(
-                                          '$oScore',
-                                          style: TextStyle(
-                                              fontSize: width / 6,
-                                              color: oPlayer.color,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  ref
-                                      .read(value == "X"
-                                          ? xPlayerProvider
-                                          : oPlayerProvider)
-                                      .nextPlayerImage,
-                                ],
-                              )),
-                        ),
-                        SizedBox(height: height / 15),
-                        Container(
-                          height: width * 0.85,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                          ),
-                          width: double.infinity,
-                          child: Stack(
-                            children: [
-                              Column(
-                                children: [
-                                  Row(
+      body: widget.isHosting || isConnected
+          ? StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: db.collection(matchCode).snapshots(),
+              builder: (context,
+                  AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot) {
+                if (snapshot.hasData) {
+                  intepreteMessage(snapshot.data!.docs[0].data());
+                }
+
+                if (!isConnected) {
+                  return Center(
+                    child: Text(
+                      "The match code: $matchCode \nWaiting for Opponent...",
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge!
+                          .copyWith(fontWeight: FontWeight.w400),
+                    ),
+                  );
+                }
+
+                return SingleChildScrollView(
+                  child: !isLandscape
+                      ? Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: double.infinity,
+                              child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 10, horizontal: 15),
+                                  child: Row(
                                     mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: containerList.sublist(0, 3),
-                                  ),
-                                  const Divider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: containerList.sublist(3, 6),
-                                  ),
-                                  const Divider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: containerList.sublist(6, 9),
-                                  ),
-                                ],
-                              ),
-                              const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  VerticalDivider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                  VerticalDivider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-                        if (feedback != null)
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              feedback!,
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        SizedBox(
-                          child: Column(
-                            children: [
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    if (!userApplyingCard)
-                                      InkWell(
-                                          onTap: onBackCardTap,
-                                          child: const CardBack()),
-                                    if (userApplyingCard)
-                                      ...widget.cards.map(
-                                        (item) => Column(
-                                          mainAxisSize: MainAxisSize.min,
+                                        MainAxisAlignment.spaceAround,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      if (opponentActiveCard != null)
+                                        const CardBack(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 15, horizontal: 30),
+                                        decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .tertiary,
+                                            borderRadius:
+                                                BorderRadius.circular(15)),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
                                           children: [
-                                            CircleAvatar(
-                                              radius: 15,
-                                              backgroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .tertiary,
-                                              foregroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .tertiaryContainer,
-                                              child: Text(
-                                                "${ref.read(cardProvider)[item]}",
-                                                style: const TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight:
-                                                        FontWeight.w500),
-                                              ),
+                                            Text(
+                                              '$xScore',
+                                              style: TextStyle(
+                                                  fontSize: width / 6,
+                                                  color: xPlayer.color,
+                                                  fontWeight: FontWeight.bold),
                                             ),
-                                            cardListDisplay[item]!,
+                                            const SizedBox(width: 20),
+                                            Text(
+                                              ':',
+                                              style: TextStyle(
+                                                  fontSize: width / 8,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onPrimary),
+                                            ),
+                                            const SizedBox(width: 20),
+                                            Text(
+                                              '$oScore',
+                                              style: TextStyle(
+                                                  fontSize: width / 6,
+                                                  color: oPlayer.color,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
                                           ],
                                         ),
                                       ),
-                                    if (userApplyingCard)
-                                      IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            userApplyingCard = false;
-                                          });
-                                        },
-                                        icon: const Icon(
-                                          Icons.close,
-                                          color: Colors.red,
-                                        ),
-                                      )
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Column(
-                          children: [
-                            Padding(
+                                      ref
+                                          .read(value == "X"
+                                              ? xPlayerProvider
+                                              : oPlayerProvider)
+                                          .nextPlayerImage,
+                                    ],
+                                  )),
+                            ),
+                            SizedBox(height: height / 15),
+                            Container(
+                              height: width * 0.85,
                               padding: const EdgeInsets.symmetric(
-                                vertical: 10,
+                                horizontal: 20,
                               ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                crossAxisAlignment: CrossAxisAlignment.center,
+                              width: double.infinity,
+                              child: Stack(
                                 children: [
-                                  ref
-                                      .read(value == "X"
-                                          ? xPlayerProvider
-                                          : oPlayerProvider)
-                                      .nextPlayerImage,
-                                  const SizedBox(
-                                    width: 15,
+                                  Column(
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: containerList.sublist(0, 3),
+                                      ),
+                                      const Divider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: containerList.sublist(3, 6),
+                                      ),
+                                      const Divider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: containerList.sublist(6, 9),
+                                      ),
+                                    ],
                                   ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 10, horizontal: 30),
-                                    decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .tertiary,
-                                        borderRadius:
-                                            BorderRadius.circular(15)),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceEvenly,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          '$xScore',
-                                          style: TextStyle(
-                                              fontSize: height / 6,
-                                              color: xPlayer.color,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        Text(
-                                          ':',
-                                          style: TextStyle(
-                                              fontSize: height / 6,
-                                              fontWeight: FontWeight.bold,
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .onPrimary),
-                                        ),
-                                        const SizedBox(width: 20),
-                                        Text(
-                                          '$oScore',
-                                          style: TextStyle(
-                                              fontSize: height / 6,
-                                              color: oPlayer.color,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ],
-                                    ),
+                                  const Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceEvenly,
+                                    children: [
+                                      VerticalDivider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                      VerticalDivider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  if (computerActiveCard != null)
-                                    const CardBack(),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 30),
                             if (feedback != null)
                               Padding(
                                 padding: const EdgeInsets.all(12),
@@ -1109,137 +994,274 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
                                       fontWeight: FontWeight.w600),
                                 ),
                               ),
-                            const SizedBox(height: 12),
                             SizedBox(
-                              width: width / 2,
-                              // color: Colors.black54,
                               child: Column(
                                 children: [
                                   SingleChildScrollView(
                                     scrollDirection: Axis.horizontal,
-                                    child: Expanded(
-                                      child: Row(
-                                        children: [
-                                          if (!userApplyingCard)
-                                            InkWell(
+                                    child: Row(
+                                      children: [
+                                        if (!userApplyingCard)
+                                          InkWell(
                                               onTap: onBackCardTap,
-                                              child: const CardBack(),
-                                            ),
-                                          if (userApplyingCard)
-                                            ...widget.cards.map(
-                                              (item) => Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  CircleAvatar(
-                                                    radius: 15,
-                                                    backgroundColor:
-                                                        Theme.of(context)
-                                                            .colorScheme
-                                                            .tertiary,
-                                                    foregroundColor:
-                                                        Theme.of(context)
-                                                            .colorScheme
-                                                            .tertiaryContainer,
-                                                    child: Text(
-                                                      "${ref.read(cardProvider)[item]}",
-                                                      style: const TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                              FontWeight.w500),
-                                                    ),
+                                              child: const CardBack()),
+                                        if (userApplyingCard)
+                                          ...widget.cards.map(
+                                            (item) => Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                CircleAvatar(
+                                                  radius: 15,
+                                                  backgroundColor:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .tertiary,
+                                                  foregroundColor:
+                                                      Theme.of(context)
+                                                          .colorScheme
+                                                          .tertiaryContainer,
+                                                  child: Text(
+                                                    "${ref.read(cardProvider)[item]}",
+                                                    style: const TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w500),
                                                   ),
-                                                  cardListDisplay[item]!,
-                                                ],
-                                              ),
+                                                ),
+                                                cardListDisplay[item]!,
+                                              ],
                                             ),
-                                          if (userApplyingCard)
-                                            IconButton(
-                                              onPressed: () {
-                                                setState(() {
-                                                  userApplyingCard = false;
-                                                });
-                                              },
-                                              icon: const Icon(
-                                                Icons.close,
-                                                color: Colors.red,
-                                              ),
-                                            )
-                                        ],
-                                      ),
+                                          ),
+                                        if (userApplyingCard)
+                                          IconButton(
+                                            onPressed: () {
+                                              setState(() {
+                                                userApplyingCard = false;
+                                              });
+                                            },
+                                            icon: const Icon(
+                                              Icons.close,
+                                              color: Colors.red,
+                                            ),
+                                          )
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             )
                           ],
-                        ),
-                        Container(
-                          height: height * 0.8,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                          ),
-                          width: height * 0.85,
-                          child: Stack(
-                            children: [
-                              Column(
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceAround,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      ref
+                                          .read(value == "X"
+                                              ? xPlayerProvider
+                                              : oPlayerProvider)
+                                          .nextPlayerImage,
+                                      const SizedBox(
+                                        width: 15,
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 10, horizontal: 30),
+                                        decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .tertiary,
+                                            borderRadius:
+                                                BorderRadius.circular(15)),
+                                        child: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceEvenly,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '$xScore',
+                                              style: TextStyle(
+                                                  fontSize: height / 6,
+                                                  color: xPlayer.color,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                            const SizedBox(width: 20),
+                                            Text(
+                                              ':',
+                                              style: TextStyle(
+                                                  fontSize: height / 6,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .onPrimary),
+                                            ),
+                                            const SizedBox(width: 20),
+                                            Text(
+                                              '$oScore',
+                                              style: TextStyle(
+                                                  fontSize: height / 6,
+                                                  color: oPlayer.color,
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      if (opponentActiveCard != null)
+                                        const CardBack(),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                if (feedback != null)
+                                  Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      feedback!,
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: width / 2,
+                                  // color: Colors.black54,
+                                  child: Column(
+                                    children: [
+                                      SingleChildScrollView(
+                                        scrollDirection: Axis.horizontal,
+                                        child: Expanded(
+                                          child: Row(
+                                            children: [
+                                              if (!userApplyingCard)
+                                                InkWell(
+                                                  onTap: onBackCardTap,
+                                                  child: const CardBack(),
+                                                ),
+                                              if (userApplyingCard)
+                                                ...widget.cards.map(
+                                                  (item) => Column(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      CircleAvatar(
+                                                        radius: 15,
+                                                        backgroundColor:
+                                                            Theme.of(context)
+                                                                .colorScheme
+                                                                .tertiary,
+                                                        foregroundColor: Theme
+                                                                .of(context)
+                                                            .colorScheme
+                                                            .tertiaryContainer,
+                                                        child: Text(
+                                                          "${ref.read(cardProvider)[item]}",
+                                                          style: const TextStyle(
+                                                              fontSize: 14,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500),
+                                                        ),
+                                                      ),
+                                                      cardListDisplay[item]!,
+                                                    ],
+                                                  ),
+                                                ),
+                                              if (userApplyingCard)
+                                                IconButton(
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      userApplyingCard = false;
+                                                    });
+                                                  },
+                                                  icon: const Icon(
+                                                    Icons.close,
+                                                    color: Colors.red,
+                                                  ),
+                                                )
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              ],
+                            ),
+                            Container(
+                              height: height * 0.8,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              width: height * 0.85,
+                              child: Stack(
                                 children: [
-                                  Row(
+                                  Column(
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: containerList.sublist(0, 3),
+                                      ),
+                                      const Divider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: containerList.sublist(3, 6),
+                                      ),
+                                      const Divider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceEvenly,
+                                        children: containerList.sublist(6, 9),
+                                      ),
+                                    ],
+                                  ),
+                                  const Row(
                                     mainAxisAlignment:
                                         MainAxisAlignment.spaceEvenly,
-                                    children: containerList.sublist(0, 3),
-                                  ),
-                                  const Divider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: containerList.sublist(3, 6),
-                                  ),
-                                  const Divider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceEvenly,
-                                    children: containerList.sublist(6, 9),
+                                    children: [
+                                      VerticalDivider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                      VerticalDivider(
+                                        thickness: 7,
+                                        color: Colors.black,
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                              const Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  VerticalDivider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                  VerticalDivider(
-                                    thickness: 7,
-                                    color: Colors.black,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-            )
-          : widget.isHosting
-              ? Center(
-                  child: Text(
-                    "The match code: $matchCode \nWaiting for Opponent...",
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge!
-                        .copyWith(fontWeight: FontWeight.w400),
-                  ),
-                )
-              : Center(child: InputCode(onPressed: checkCode)),
+                );
+              })
+          : Center(child: joinWidget),
     );
   }
 }

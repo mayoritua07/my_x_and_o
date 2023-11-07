@@ -88,7 +88,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => SetupScreen(
-              changePage: ((context, value, cards) =>
+              changePage: ((context, value, cards, useCards) =>
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (context) => WifiPlay(
                       value: value,
@@ -108,11 +108,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => SetupScreen(
-              changePage: ((context, value, cards) =>
+              changePage: ((context, value, cards, useCards) =>
                   Navigator.of(context).push(MaterialPageRoute(
                     builder: (context) => OnlinePlay.host(
                       value: value,
                       cards: cards,
+                      useCards: useCards!,
                     ),
                   ))),
             ),
@@ -123,9 +124,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         Navigator.of(context).pop();
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => const OnlinePlay.join(
+            builder: (context) => OnlinePlay.join(
               value: '',
-              cards: [],
+              cards: const [],
             ),
           ),
         );
@@ -139,7 +140,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => SetupScreen(
-                  changePage: ((context, value, List<Enum> cards) =>
+                  changePage: ((context, value, List<Enum> cards, useCards) =>
                       Navigator.of(context).push(MaterialPageRoute(
                         builder: (context) => SinglePlayer(
                           value: value,

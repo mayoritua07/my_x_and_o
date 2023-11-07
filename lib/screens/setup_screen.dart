@@ -20,7 +20,8 @@ class SetupScreen extends ConsumerStatefulWidget {
     required this.changePage,
   });
 
-  final void Function(BuildContext context, String value, List<Enum> cards)
+  final void Function(
+          BuildContext context, String value, List<Enum> cards, bool? useCards)
       changePage;
 
   @override
@@ -34,8 +35,9 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   bool useCards = false;
   Map<Enum, Widget> cardsDisplayList = {};
   Map<Enum, Widget> originalCards = {};
-  String value = "X";
   List<Enum> cards = [];
+  String value = "X";
+
   final db = FirebaseFirestore.instance;
 
   @override
@@ -135,7 +137,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
 
   void nextPage() async {
     Navigator.of(context).pop();
-    widget.changePage(context, value, cards);
+    widget.changePage(context, value, cards, useCards);
     BuildContext? newContext;
     Navigator.of(context).push(
       MaterialPageRoute(

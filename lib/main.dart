@@ -121,11 +121,19 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
 
     await globalAudioPlayer.resume();
 
-    globalAudioPlayer.onPlayerComplete.listen((event) async {
-      await globalAudioPlayer.release();
-      await globalAudioPlayer.setSource(AssetSource(songList[num]));
-      backgroundMusic(number);
+    globalAudioPlayer.onPlayerStateChanged.listen((event) async {
+      if (event == PlayerState.completed) {
+        await globalAudioPlayer.release();
+        await globalAudioPlayer.setSource(AssetSource(songList[num]));
+        backgroundMusic(number);
+      }
     });
+
+    // globalAudioPlayer.onPlayerComplete.listen((event) async {
+    //   await globalAudioPlayer.release();
+    //   await globalAudioPlayer.setSource(AssetSource(songList[num]));
+    //   backgroundMusic(number);
+    // });
   }
 
   @override
@@ -151,6 +159,8 @@ work on quotes to show
 animation of winning and shop buying
 change powerup effect sound, add draw sound.
 design logo
+how to know if app has been closed
+first time on app to give tour
 
 
 wifi play : username

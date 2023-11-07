@@ -4,17 +4,9 @@ import 'package:flutter/material.dart';
 
 final randomizer = Random();
 int generateRandomPosition() {
-  int randomValue = randomizer.nextInt(images.length);
+  int randomValue = randomizer.nextInt(18) + 1;
   return randomValue;
 }
-
-final List<String> quotes = [
-  "Thank God for life",
-  "Stay Happy",
-  "Joy Overflow"
-];
-
-final List<String> images = [];
 
 class QuoteScreen extends StatelessWidget {
   const QuoteScreen({super.key});
@@ -23,10 +15,10 @@ class QuoteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
         body: Image.asset(
-      images[generateRandomPosition()],
+      "assets/images/splash_image/images${generateRandomPosition()}.jpeg",
       width: double.infinity,
       height: double.infinity,
-      fit: BoxFit.cover,
+      fit: BoxFit.fill,
     ));
   }
 }
