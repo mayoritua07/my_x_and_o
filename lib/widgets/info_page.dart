@@ -114,8 +114,8 @@ class _InfoPageState extends ConsumerState<InfoPage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               widget.value == "X"
-                  ? ref.read(xPlayerProvider)
-                  : ref.read(oPlayerProvider),
+                  ? ref.read(xPlayerProvider).nextPlayerImage
+                  : ref.read(oPlayerProvider).nextPlayerImage,
               const Text('Cards'),
             ],
           ),

@@ -136,7 +136,6 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
   }
 
   void nextPage() async {
-    Navigator.of(context).pop();
     widget.changePage(context, value, cards, useCards);
     BuildContext? newContext;
     Navigator.of(context).push(
@@ -147,7 +146,7 @@ class _SetupScreenState extends ConsumerState<SetupScreen> {
         },
       ),
     );
-    Timer(const Duration(seconds: 2), () {
+    Timer(const Duration(seconds: 5), () {
       Navigator.of(newContext!).pop();
     });
   }

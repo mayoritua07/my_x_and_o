@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 final randomizer = Random();
 int generateRandomPosition() {
-  int randomValue = randomizer.nextInt(18) + 1;
+  int randomValue = randomizer.nextInt(20) + 1;
   return randomValue;
 }
 

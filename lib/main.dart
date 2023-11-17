@@ -124,6 +124,7 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     globalAudioPlayer.onPlayerStateChanged.listen((event) async {
       if (event == PlayerState.completed) {
         await globalAudioPlayer.release();
+        num = generateRandomPosition(number);
         await globalAudioPlayer.setSource(AssetSource(songList[num]));
         backgroundMusic(number);
       }
@@ -148,6 +149,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     );
   }
 }
+
+// URGENT ADD KEYBOARD FOCUS WHEN DONE TYPING AND STRIP CODE OF SPACES, // actually add feddback,
 
 /*
 cards : include shop for cards, money, you will start with 3 of each card, nullify and swap will be special cards, amssing wealth, displaying card bought, displaying only cards they have, improve packs description

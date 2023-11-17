@@ -21,9 +21,11 @@ import 'package:uuid/uuid.dart';
 
 enum IncrementPattern { horizontal, vertical, leadingDiagonal, secondDiagonal }
 
-String? kmatchCode;
+String username = "Mayoritua07";
 
 final randomizer = Random();
+
+final kCardsList = [Cards.block, Cards.nullify, Cards.randomSwap, Cards.swap];
 
 class OnlinePlay extends ConsumerStatefulWidget {
   OnlinePlay.host(
@@ -73,8 +75,8 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   String? feedback;
   List myCardPosition = [];
   List opponentCardPosition = [];
-  Widget? myActiveCard;
-  Widget? opponentActiveCard;
+  Cards? myActiveCard;
+  Cards? opponentActiveCard;
   Map<String, dynamic> messageDetails = {};
   late Widget blockCard;
   late Widget nullifyCard;
@@ -87,6 +89,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   late Map<Enum, Widget> possibleCardList = {};
   final db = FirebaseFirestore.instance;
   late Widget joinWidget;
+  int roundNumber = 1;
 
   bool check(int position, List<int> positions, IncrementPattern pattern) {
     int incrementValue;
@@ -191,8 +194,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       cardListDisplay.addAll({item: possibleCardList[item]!});
     }
     if (widget.isHosting) {
-      matchCode = (const Uuid().v1()).substring(0, 8);
-      kmatchCode = matchCode;
+      matchCode = username;
       hostSetup();
     }
   }
@@ -200,7 +202,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   @override
   void dispose() {
     if (widget.isHosting) {
-      db.collection(matchCode).doc(matchCode).delete();
+      db.collection(matchCode).doc(matchCode).set({"endGame": true});
     }
     super.dispose();
   }
@@ -209,6 +211,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     db.collection(matchCode).doc(matchCode).set({
       "value": myValue,
       "cards": useCards,
+      "endGame": false,
     });
   }
 
@@ -221,8 +224,13 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     db.collection(matchCode).doc(code).get().then((document) {
       final data = document.data();
       if (data != null) {
+        if (data["endGame"]) {
+          return;
+          // Room is not available
+        }
         value = data['value'];
         useCards = data["cards"];
+        opponentValue = value;
         myValue = value == "X" ? "O" : "X";
         setState(() {
           joinWidget = InfoPage(
@@ -246,7 +254,10 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void beginMatch(List<Enum> cards) async {
     widget.cards = cards;
-    await db.collection(matchCode).doc(matchCode).set({"isConnected": true});
+    await db
+        .collection(matchCode)
+        .doc(matchCode)
+        .set({"isConnected": true, "endGame": false});
     // send info to start
     setState(() {
       for (final item in widget.cards) {
@@ -288,10 +299,11 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void userPlay(int pos) {
     if (value != myValue) {
+      containerList[pos - 1].resetScreen();
       return;
     }
     if (opponentActiveCard != null && !userApplyingCard && feedback == null) {
-      if (opponentActiveCard == blockCard) {
+      if (opponentActiveCard == Cards.block) {
         if (opponentCardPosition.contains(pos)) {
           setState(() {
             containerList[pos - 1].resetScreen();
@@ -299,6 +311,10 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             opponentCardPosition = [];
             Vibration.vibrate();
             feedback = "You have been Blocked!";
+            messageDetails.addAll({
+              "feedback": "Blocked!",
+            });
+            messageDetails["feedback"] = "Blocked!";
             Timer(const Duration(milliseconds: 1000), () {
               setState(() {
                 feedback = null;
@@ -310,7 +326,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
           return;
         }
-      } else if (opponentActiveCard == swapCard) {
+      } else if (opponentActiveCard == Cards.swap) {
         if (opponentCardPosition[0] == pos) {
           containerList[pos - 1].resetScreen();
           pos = opponentCardPosition[1];
@@ -318,6 +334,9 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             containerList[pos - 1].resetScreen();
             Vibration.vibrate();
             feedback = "Your tile has been swapped!";
+            messageDetails.addAll({
+              "feedback": "Swapped!",
+            });
             Timer(const Duration(milliseconds: 1000), () {
               setState(() {
                 feedback = null;
@@ -325,13 +344,16 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             });
           });
         }
-      } else if (opponentActiveCard == randomSwapCard) {
+      } else if (opponentActiveCard == Cards.randomSwap) {
         if (opponentCardPosition[0] == pos) {
           containerList[pos - 1].resetScreen();
           pos = generateRandomPosition();
           setState(() {
             Vibration.vibrate();
             feedback = "Your tile has been swapped!";
+            messageDetails.addAll({
+              "feedback": "Swapped!",
+            });
             Timer(const Duration(milliseconds: 1000), () {
               setState(() {
                 feedback = null;
@@ -357,7 +379,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       setState(() {
         feedback = null;
       });
-      if (myActiveCard == swapCard && myCardPosition.length == 1) {
+      if (myActiveCard == Cards.swap && myCardPosition.length == 1) {
         userApplyingCard = false;
         setState(() {
           getPosition = true;
@@ -369,33 +391,40 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     }
 
     onClicked(pos);
+    sendMessage(pos);
+    value = opponentValue;
   }
 
   void intepreteMessage(Map<String, dynamic> message) {
     db.collection(matchCode).doc(matchCode).get().then((document) {
       final info = document.data()!;
+      if (info["endGame"]) {
+        Navigator.of(context).pop();
+        return;
+      }
       if (info["isConnected"] != null) {
         setState(() {
           isConnected = true;
         });
         return;
       }
-      if (tap == info["tap"]) {
-        // To prevent intepreting self sent message
-        return;
+      tap = info["tap"] ?? 0;
+      if (info["activeCard"] != null) {
+        opponentActiveCard = kCardsList[info["activeCard"]];
       }
-      tap = info["tap"] as int;
-      opponentActiveCard = info["activeCard"] as Widget?;
-      opponentCardPosition = info["cardPosition"];
+
+      opponentCardPosition = info["cardPosition"] ?? [];
       setState(() {
-        value = opponentValue;
-        feedback = info["feedback"];
-        onClicked(info["position"]);
+        feedback = info["feedback"] as String?;
+        final position = info["position"];
+        if (position != null) {
+          onClicked(position);
+        }
         Timer(const Duration(milliseconds: 1000), () {
           feedback = null;
         });
       });
-      value = myValue;
+      value = info["value"];
     }, onError: (e) {
       "Issue with network";
     });
@@ -406,12 +435,12 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       "tap": tap,
       "position": pos,
       "cardPosition": myCardPosition,
-      "activeCard": myActiveCard,
-      "feedback": null
+      "feedback": null,
+      "value": opponentValue,
+      "endGame": false
     };
     // add feedback to message details
     db.collection(matchCode).doc(matchCode).set(messageDetails);
-    messageDetails = {};
   }
 
   void onClicked(int position) async {
@@ -444,11 +473,12 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         decision = myValue == "X" ? "You win" : "You lose";
         xScore++;
         endingSound(myValue == "X" ? winningSound : losingSound, () {});
-        sendMessage(position);
-        value = opponentValue;
+        Timer(const Duration(seconds: 2), () {
+          Navigator.of(context).pop();
+          restartGame();
+        });
         return;
       }
-      value = opponentValue;
     } else {
       oPositions.add(position);
       if (winner(oPositions)) {
@@ -469,19 +499,23 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         endingSound(myValue == "O" ? winningSound : losingSound, () {
           oScore++;
         });
-        sendMessage(position);
-        value = opponentValue;
+        Timer(const Duration(seconds: 2), () {
+          Navigator.of(context).pop();
+          restartGame();
+        });
         return;
       }
-      value = opponentValue;
     }
     if (spaceUsedUp()) {
       setState(() {
         decision = "Draw";
         popUp(false);
+        Timer(const Duration(seconds: 2), () {
+          Navigator.of(context).pop();
+          restartGame();
+        });
       });
     }
-    sendMessage(position);
   }
 
   int generateRandomPosition() {
@@ -531,20 +565,20 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     buttonSound(() {
       player.stop();
       setState(() {
-        Navigator.of(context).pop();
         for (final items in containerList) {
           items.resetScreen();
         }
         decision = null;
         oPositions = [];
         winningPositions = [];
+        roundNumber += 1;
         tap = 0;
         xPositions = [];
       });
     });
   }
 
-  void quitGame() {
+  void exitToLobby() {
     buttonSound(() {
       Navigator.of(context).pop();
       Navigator.of(context).pop();
@@ -553,6 +587,9 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   }
 
   void popUp(bool isDismissible) {
+    double height = MediaQuery.of(context).size.height;
+    double width = MediaQuery.of(context).size.width;
+    bool isLandscape = width > 650;
     showDialog(
         barrierDismissible: isDismissible,
         context: context,
@@ -562,112 +599,163 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             child: StatefulBuilder(
               builder: (context, setState) => AlertDialog(
                 title: Center(
-                  child: Text(
-                    decision ?? "Pause Menu",
-                    style: TextStyle(
-                        fontSize: 18,
-                        color: isDarkMode
-                            ? null
-                            : Theme.of(context).colorScheme.onPrimaryContainer),
+                  child: Column(
+                    children: [
+                      Text(
+                        "Round $roundNumber",
+                        style: TextStyle(
+                            fontSize: 18,
+                            color: isDarkMode
+                                ? null
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer),
+                      ),
+                      Text(
+                        "matchType",
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: isDarkMode
+                                ? null
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer),
+                      ),
+                    ],
                   ),
                 ),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          restartGame();
-                          xScore = 0;
-                          oScore = 0;
-                        });
-                      },
-                      label: const Text('Restart'),
-                      icon: const Icon(Icons.restart_alt),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          '$xScore',
+                          style: TextStyle(
+                              fontSize: !isLandscape ? width / 6 : height / 6,
+                              color: xPlayer.color,
+                              fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(width: 20),
+                        Text(
+                          ':',
+                          style: TextStyle(
+                              fontSize: !isLandscape ? width / 8 : height / 6,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.onPrimary),
+                        ),
+                        const SizedBox(width: 20),
+                        Text(
+                          '$oScore',
+                          style: TextStyle(
+                              fontSize: !isLandscape ? width / 6 : height / 6,
+                              color: oPlayer.color,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ],
                     ),
-                    const SizedBox(
-                      height: 12,
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          restartGame();
-                        });
-                      },
-                      label: const Text('Rematch'),
-                      icon: const Icon(Icons.redo_rounded),
-                    ),
-                    const SizedBox(
-                      height: 12,
-                    ),
-                    TextButton.icon(
-                      onPressed: quitGame,
-                      label: const Text('Quit'),
-                      icon: const Icon(
-                        Icons.cancel,
-                        color: Colors.red,
-                      ),
-                    ),
-                    if (isDismissible)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  ref.read(soundTrackProvider)
-                                      ? Icons.music_note
-                                      : Icons.music_off,
-                                  color: Theme.of(context).colorScheme.primary,
+                    Text(decision ?? "Draw"),
+                    Row(
+                      children: [
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            if (widget.isHosting && isDismissible)
+                              TextButton.icon(
+                                onPressed: exitToLobby,
+                                label: const Text('Exit to lobby'),
+                                icon: const Icon(
+                                  Icons.exit_to_app,
+                                  color: Colors.red,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    ref
-                                        .read(soundTrackProvider.notifier)
-                                        .toggleSoundTrack();
-                                  });
-                                  clickButton(() {});
-                                },
                               ),
-                              Text(
-                                "Sound Track",
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
+                            const SizedBox(
+                              height: 20,
+                            ),
+                            if (isDismissible)
+                              TextButton.icon(
+                                onPressed: () {
+                                  exitToLobby();
+                                  if (widget.isHosting) {
+                                    Navigator.of(context).pop();
+                                  }
+                                },
+                                label: const Text('Quit'),
+                                icon: const Icon(
+                                  Icons.cancel,
+                                  color: Colors.red,
                                 ),
+                              ),
+                          ],
+                        ),
+                        if (isDismissible)
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      ref.read(soundTrackProvider)
+                                          ? Icons.music_note
+                                          : Icons.music_off,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        ref
+                                            .read(soundTrackProvider.notifier)
+                                            .toggleSoundTrack();
+                                      });
+                                      clickButton(() {});
+                                    },
+                                  ),
+                                  Text(
+                                    "Sound Track",
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                  )
+                                ],
+                              ),
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: Icon(
+                                      ref.read(soundEffectProvider)
+                                          ? Icons.volume_up
+                                          : Icons.volume_off,
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        ref
+                                            .read(soundEffectProvider.notifier)
+                                            .toggleSoundEffect();
+                                      });
+                                      clickButton(() {});
+                                    },
+                                  ),
+                                  Text(
+                                    "Sound Effects",
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                    ),
+                                  ),
+                                ],
                               )
                             ],
-                          ),
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(
-                                  ref.read(soundEffectProvider)
-                                      ? Icons.volume_up
-                                      : Icons.volume_off,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    ref
-                                        .read(soundEffectProvider.notifier)
-                                        .toggleSoundEffect();
-                                  });
-                                  clickButton(() {});
-                                },
-                              ),
-                              Text(
-                                "Sound Effects",
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                              ),
-                            ],
                           )
-                        ],
-                      )
+                      ],
+                    )
                   ],
                 ),
               ),
@@ -689,7 +777,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
   }
 
   void onBackCardTap() {
-    if (tap > 3) {
+    if (tap > 3 || value != myValue) {
       // ScaffoldMessenger.of(context).clearSnackBars();
       // ScaffoldMessenger.of(context).showSnackBar(
       //   const SnackBar(content: Text("Can no longer activate cards")),
@@ -712,11 +800,15 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void onBlockCard() {
     if (ref.read(cardProvider)[Cards.block]! > 0) {
+      myActiveCard = Cards.block;
+      messageDetails.addAll(
+        {"activeCard": kCardsList.indexOf(myActiveCard!)},
+      );
       setState(() {
         feedback = "Guess Opponent next position";
+        ;
         getPosition = true;
         userApplyingCard = false;
-        myActiveCard = blockCard;
         ref.read(cardProvider.notifier).reduceCard(Cards.block);
       });
     } else {
@@ -726,10 +818,11 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void onSwapCard() {
     if (ref.read(cardProvider)[Cards.swap]! > 0) {
+      myActiveCard = Cards.swap;
+      messageDetails.addAll({"activeCard": kCardsList.indexOf(myActiveCard!)});
       setState(() {
-        feedback = "Guess Opponent next position";
+        feedback = "Guess Opponent's next position";
         getPosition = true;
-        myActiveCard = swapCard;
         ref.read(cardProvider.notifier).reduceCard(Cards.swap);
       });
     } else {
@@ -739,10 +832,13 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void onRandomSwapCard() {
     if (ref.read(cardProvider)[Cards.randomSwap]! > 0) {
+      myActiveCard = Cards.randomSwap;
+      messageDetails.addAll({
+        "activeCard": kCardsList.indexOf(myActiveCard!),
+      });
       setState(() {
         feedback = "Guess Opponent next position";
         getPosition = true;
-        myActiveCard = randomSwapCard;
         userApplyingCard = false;
         ref.read(cardProvider.notifier).reduceCard(Cards.randomSwap);
       });
@@ -753,8 +849,13 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   void onNullifyCard() {
     if (ref.read(cardProvider)[Cards.nullify]! > 0) {
-      myActiveCard = nullifyCard;
+      myActiveCard = Cards.nullify;
       nullifyPowerupSound();
+      messageDetails.addAll({
+        "activeCard": kCardsList.indexOf(myActiveCard!),
+        "feedback": "Your card was nullified!"
+      });
+      // actually add feddback,
       setState(() {
         feedback = "Nullified!";
         Timer(const Duration(milliseconds: 1000), () {
@@ -774,10 +875,10 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(cardProvider);
     double height = MediaQuery.of(context).size.height;
     double width = MediaQuery.of(context).size.width;
     bool isLandscape = width > 650;
-    ref.watch(cardProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -842,13 +943,14 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
               builder: (context,
                   AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot) {
                 if (snapshot.hasData) {
-                  intepreteMessage(snapshot.data!.docs[0].data());
+                  final currentData = snapshot.data!.docs[0].data();
+                  intepreteMessage(currentData);
                 }
 
                 if (!isConnected) {
                   return Center(
                     child: Text(
-                      "The match code: $matchCode \nWaiting for Opponent...",
+                      "The match code is your username: '$matchCode' \nWaiting for Opponent...",
                       textAlign: TextAlign.center,
                       style: Theme.of(context)
                           .textTheme

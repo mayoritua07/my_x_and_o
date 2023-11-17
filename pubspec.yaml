@@ -44,7 +44,7 @@ dependencies:
   vibration: ^1.8.3
   move_to_background: ^1.0.2
   screen_state: ^3.0.1
-  uuid: ^4.1.0
+  uuid: ^4.2.1
 
 dev_dependencies:
   flutter_test:
@@ -120,6 +120,8 @@ flutter:
     - assets/images/splash_image/images16.jpeg
     - assets/images/splash_image/images17.jpeg
     - assets/images/splash_image/images18.jpeg
+    - assets/images/splash_image/images19.jpeg
+    - assets/images/splash_image/images20.jpeg
 
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
