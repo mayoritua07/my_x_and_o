@@ -17,7 +17,6 @@ import 'package:my_x_and_o/widgets/container.dart';
 import 'package:my_x_and_o/widgets/player.dart';
 import 'package:flutter/material.dart';
 import 'package:my_x_and_o/main.dart';
-import 'package:uuid/uuid.dart';
 
 enum IncrementPattern { horizontal, vertical, leadingDiagonal, secondDiagonal }
 
@@ -245,7 +244,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     }, onError: (e) {
       "Problem retrieving data";
     }
-        // TODO show scaffold,
+        // Todo show scaffold,
         );
 
     // get data, pop text input and load info page
@@ -257,7 +256,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     await db
         .collection(matchCode)
         .doc(matchCode)
-        .set({"isConnected": true, "endGame": false});
+        .set({"isConnected": true, "endGame": false, "value": myValue});
     // send info to start
     setState(() {
       for (final item in widget.cards) {
@@ -302,6 +301,9 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       containerList[pos - 1].resetScreen();
       return;
     }
+    if (selectedTileUsedUp(pos)) {
+      return;
+    }
     if (opponentActiveCard != null && !userApplyingCard && feedback == null) {
       if (opponentActiveCard == Cards.block) {
         if (opponentCardPosition.contains(pos)) {
@@ -314,7 +316,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
             messageDetails.addAll({
               "feedback": "Blocked!",
             });
-            messageDetails["feedback"] = "Blocked!";
+
             Timer(const Duration(milliseconds: 1000), () {
               setState(() {
                 feedback = null;
@@ -323,6 +325,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
           });
           value = opponentValue;
           tap++;
+          sendMessage(0);
 
           return;
         }
@@ -366,11 +369,6 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
         opponentActiveCard = null;
         opponentCardPosition = [];
       });
-    } else if (myActiveCard == null) {
-      if (selectedTileUsedUp(pos)) {
-        containerList[pos - 1].resetScreen();
-        return;
-      }
     } else if (getPosition) {
       myCardPosition.add(pos);
       containerList[pos - 1].resetScreen();
@@ -386,68 +384,90 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
           feedback = "Choose your location";
         });
       }
-
       return;
     }
 
     onClicked(pos);
     sendMessage(pos);
-    value = opponentValue;
   }
 
   void intepreteMessage(Map<String, dynamic> message) {
     db.collection(matchCode).doc(matchCode).get().then((document) {
       final info = document.data()!;
-      if (info["endGame"]) {
-        Navigator.of(context).pop();
-        return;
-      }
       if (info["isConnected"] != null) {
         setState(() {
           isConnected = true;
         });
         return;
       }
-      tap = info["tap"] ?? 0;
-      if (info["activeCard"] != null) {
-        opponentActiveCard = kCardsList[info["activeCard"]];
+
+      if (info["endGame"] == true) {
+        Navigator.of(context).pop();
+        return;
       }
 
-      opponentCardPosition = info["cardPosition"] ?? [];
-      setState(() {
-        feedback = info["feedback"] as String?;
-        final position = info["position"];
-        if (position != null) {
-          onClicked(position);
-        }
-        Timer(const Duration(milliseconds: 1000), () {
-          feedback = null;
+      if (value == myValue || info["value"] == opponentValue) {
+        return;
+      }
+
+      for (final pos in myCardPosition) {
+        containerList[pos - 1].resetScreen();
+      }
+      // print("I reached here");
+      myCardPosition = [];
+
+      if (info["activeCard"] != null) {
+        setState(() {
+          tap = info["tap"] ?? 0;
+          opponentActiveCard = kCardsList[info["activeCard"]];
         });
+      }
+
+      setState(() {
+        opponentCardPosition = info["cardPosition"] ?? [];
+        feedback = info["feedback"] as String?;
+        Timer(const Duration(seconds: 1), () {
+          setState(() {
+            feedback = null;
+          });
+        });
+        final position = info["position"];
+        if (position != null && position != 0) {
+          final hasWinner = onClicked(position);
+          if (hasWinner == 'winner') {
+            db.collection(matchCode).doc(matchCode).set({});
+          }
+        }
       });
-      value = info["value"];
+      if (info["value"] != null) {
+        value = info["value"];
+      }
     }, onError: (e) {
       "Issue with network";
     });
   }
 
   void sendMessage(pos) {
-    messageDetails = {
+    messageDetails.addAll({
       "tap": tap,
       "position": pos,
       "cardPosition": myCardPosition,
-      "feedback": null,
       "value": opponentValue,
       "endGame": false
-    };
+    });
     // add feedback to message details
     db.collection(matchCode).doc(matchCode).set(messageDetails);
+    messageDetails = {};
+    value = opponentValue;
+    myActiveCard = null;
+    opponentActiveCard = null;
   }
 
-  void onClicked(int position) async {
+  String onClicked(int position) {
     if (decision != null ||
         xPositions.contains(position) ||
         oPositions.contains(position)) {
-      return;
+      return '';
     }
 
     tap++;
@@ -477,7 +497,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
           Navigator.of(context).pop();
           restartGame();
         });
-        return;
+        return 'winner';
       }
     } else {
       oPositions.add(position);
@@ -503,7 +523,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
           Navigator.of(context).pop();
           restartGame();
         });
-        return;
+        return 'winner';
       }
     }
     if (spaceUsedUp()) {
@@ -515,7 +535,9 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
           restartGame();
         });
       });
+      return 'winner';
     }
+    return '';
   }
 
   int generateRandomPosition() {
@@ -806,7 +828,6 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
       );
       setState(() {
         feedback = "Guess Opponent next position";
-        ;
         getPosition = true;
         userApplyingCard = false;
         ref.read(cardProvider.notifier).reduceCard(Cards.block);
@@ -851,10 +872,7 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
     if (ref.read(cardProvider)[Cards.nullify]! > 0) {
       myActiveCard = Cards.nullify;
       nullifyPowerupSound();
-      messageDetails.addAll({
-        "activeCard": kCardsList.indexOf(myActiveCard!),
-        "feedback": "Your card was nullified!"
-      });
+      messageDetails.addAll({"feedback": "Your card was nullified!"});
       // actually add feddback,
       setState(() {
         feedback = "Nullified!";
@@ -1245,64 +1263,67 @@ class _GameScreenState extends ConsumerState<OnlinePlay> {
                                 SizedBox(
                                   width: width / 2,
                                   // color: Colors.black54,
-                                  child: Column(
-                                    children: [
-                                      SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        child: Expanded(
-                                          child: Row(
-                                            children: [
-                                              if (!userApplyingCard)
-                                                InkWell(
-                                                  onTap: onBackCardTap,
-                                                  child: const CardBack(),
-                                                ),
-                                              if (userApplyingCard)
-                                                ...widget.cards.map(
-                                                  (item) => Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      CircleAvatar(
-                                                        radius: 15,
-                                                        backgroundColor:
-                                                            Theme.of(context)
-                                                                .colorScheme
-                                                                .tertiary,
-                                                        foregroundColor: Theme
-                                                                .of(context)
-                                                            .colorScheme
-                                                            .tertiaryContainer,
-                                                        child: Text(
-                                                          "${ref.read(cardProvider)[item]}",
-                                                          style: const TextStyle(
-                                                              fontSize: 14,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500),
+                                  child: Expanded(
+                                    child: Column(
+                                      children: [
+                                        SingleChildScrollView(
+                                          scrollDirection: Axis.horizontal,
+                                          child: Expanded(
+                                            child: Row(
+                                              children: [
+                                                if (!userApplyingCard)
+                                                  InkWell(
+                                                    onTap: onBackCardTap,
+                                                    child: const CardBack(),
+                                                  ),
+                                                if (userApplyingCard)
+                                                  ...widget.cards.map(
+                                                    (item) => Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      children: [
+                                                        CircleAvatar(
+                                                          radius: 15,
+                                                          backgroundColor:
+                                                              Theme.of(context)
+                                                                  .colorScheme
+                                                                  .tertiary,
+                                                          foregroundColor: Theme
+                                                                  .of(context)
+                                                              .colorScheme
+                                                              .tertiaryContainer,
+                                                          child: Text(
+                                                            "${ref.read(cardProvider)[item]}",
+                                                            style: const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w500),
+                                                          ),
                                                         ),
-                                                      ),
-                                                      cardListDisplay[item]!,
-                                                    ],
+                                                        cardListDisplay[item]!,
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
-                                              if (userApplyingCard)
-                                                IconButton(
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      userApplyingCard = false;
-                                                    });
-                                                  },
-                                                  icon: const Icon(
-                                                    Icons.close,
-                                                    color: Colors.red,
-                                                  ),
-                                                )
-                                            ],
+                                                if (userApplyingCard)
+                                                  IconButton(
+                                                    onPressed: () {
+                                                      setState(() {
+                                                        userApplyingCard =
+                                                            false;
+                                                      });
+                                                    },
+                                                    icon: const Icon(
+                                                      Icons.close,
+                                                      color: Colors.red,
+                                                    ),
+                                                  )
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 )
                               ],

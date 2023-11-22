@@ -38,6 +38,8 @@ class Player extends StatelessWidget {
     return Image.asset(
       value!,
       color: color,
+      height: 100,
+      width: 100,
     );
   }
 }

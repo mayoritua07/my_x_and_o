@@ -1058,60 +1058,64 @@ class _GameScreenState extends ConsumerState<SinglePlayer> {
                       SizedBox(
                         width: width / 2,
                         // color: Colors.black54,
-                        child: Column(
-                          children: [
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Expanded(
-                                child: Row(
-                                  children: [
-                                    if (!userApplyingCard)
-                                      InkWell(
-                                        onTap: onBackCardTap,
-                                        child: const CardBack(),
-                                      ),
-                                    if (userApplyingCard)
-                                      ...widget.cards.map(
-                                        (item) => Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            CircleAvatar(
-                                              radius: 15,
-                                              backgroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .tertiary,
-                                              foregroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .tertiaryContainer,
-                                              child: Text(
-                                                "${ref.read(cardProvider)[item]}",
-                                                style: const TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight:
-                                                        FontWeight.w500),
+                        child: Expanded(
+                          child: Column(
+                            children: [
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Expanded(
+                                  child: Row(
+                                    children: [
+                                      if (!userApplyingCard)
+                                        InkWell(
+                                          onTap: onBackCardTap,
+                                          child: const CardBack(),
+                                        ),
+                                      if (userApplyingCard)
+                                        ...widget.cards.map(
+                                          (item) => Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 15,
+                                                backgroundColor:
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .tertiary,
+                                                foregroundColor:
+                                                    Theme.of(context)
+                                                        .colorScheme
+                                                        .tertiaryContainer,
+                                                child: Text(
+                                                  "${ref.read(cardProvider)[item]}",
+                                                  style: const TextStyle(
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w500),
+                                                ),
                                               ),
-                                            ),
-                                            cardListDisplay[item]!,
-                                          ],
+                                              cardListDisplay[item]!,
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    if (userApplyingCard)
-                                      IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            userApplyingCard = false;
-                                          });
-                                        },
-                                        icon: const Icon(
-                                          Icons.close,
-                                          color: Colors.red,
-                                        ),
-                                      )
-                                  ],
+                                      if (userApplyingCard)
+                                        IconButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              userApplyingCard = false;
+                                            });
+                                          },
+                                          icon: const Icon(
+                                            Icons.close,
+                                            color: Colors.red,
+                                          ),
+                                        )
+                                    ],
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       )
                     ],

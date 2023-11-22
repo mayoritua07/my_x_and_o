@@ -76,6 +76,7 @@ class MyApp extends ConsumerStatefulWidget {
 class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   final _screen = Screen();
   bool isScreenOff = false;
+  bool audioAlowed = true;
 
   @override
   void initState() {
@@ -89,6 +90,10 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     setState(() {
       if (state == AppLifecycleState.paused) {
         globalAudioPlayer.pause();
+        audioAlowed = false;
+      }
+      if (state == AppLifecycleState.resumed) {
+        audioAlowed = true;
       }
     });
     super.didChangeAppLifecycleState(state);
@@ -119,14 +124,16 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
       return;
     }
 
-    await globalAudioPlayer.resume();
+    if (audioAlowed) {
+      await globalAudioPlayer.resume();
+    }
 
     globalAudioPlayer.onPlayerStateChanged.listen((event) async {
       if (event == PlayerState.completed) {
         await globalAudioPlayer.release();
         num = generateRandomPosition(number);
         await globalAudioPlayer.setSource(AssetSource(songList[num]));
-        backgroundMusic(number);
+        backgroundMusic(num);
       }
     });
 
@@ -149,6 +156,8 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
     );
   }
 }
+
+// "Mayoritua07"  
 
 // URGENT ADD KEYBOARD FOCUS WHEN DONE TYPING AND STRIP CODE OF SPACES, // actually add feddback,
 

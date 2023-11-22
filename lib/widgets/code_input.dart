@@ -41,7 +41,7 @@ class _InputCodeState extends State<InputCode> {
           ),
           TextButton(
               onPressed: () {
-                // TODO Drop keyboard
+                FocusScope.of(context).unfocus();
                 widget.onPressed(controller.text);
               },
               child: const Text("Join"))
