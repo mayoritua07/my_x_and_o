@@ -7,9 +7,11 @@ A new Flutter project.
 This project is a starting point for a Flutter application.
 
 A few resources to get you started if this is your first Flutter project:
-Match set-up screen:
+
+Dark mode Home screen:
 ![WhatsApp Image 2024-02-29 at 12 51 35 PM](https://github.com/mayoritua07/my_x_and_o/assets/122986498/32156c49-0d9e-49f8-9d9b-902af8282e18)
 
+Match set-up screen:
 Options screen with avatar configure being displayed:
 ![WhatsApp Image 2024-02-29 at 12 51 35 PM (1)](https://github.com/mayoritua07/my_x_and_o/assets/122986498/2922e904-1089-4335-9503-1dafbe401f3d)
 
